@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  users     User[]
+  processes Process[]
+}
+
+model User {
+  id             String        @id @default(cuid())
+  email          String        @unique
+  name           String
+  role           String        @default("Consultant")
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Process {
+  id                   String               @id @default(cuid())
+  organizationId       String
+  organization         Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name                 String
+  description          String?
+  department           String               @default("Operations")
+  ownerName            String               @default("Process Owner")
+  ownerEmail           String?
+  status               String               @default("Draft")
+  currentVersionNumber Int                  @default(1)
+  currentVersionId     String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  versions             ProcessVersion[]
+  participants         ProcessParticipant[]
+  messages             ProcessMessage[]
+}
+
+model ProcessVersion {
+  id            String   @id @default(cuid())
+  processId     String
+  process       Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  versionNumber Int
+  processData   String
+  createdBy     String   @default("Process Lead")
+  changeSummary String?
+  createdAt     DateTime @default(now())
+}
+
+model ProcessParticipant {
+  id        String   @id @default(cuid())
+  processId String
+  process   Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  name      String
+  role      String
+  email     String?
+  createdAt DateTime @default(now())
+}
+
+model ProcessMessage {
+  id               String   @id @default(cuid())
+  processId        String
+  process          Process  @relation(fields: [processId], references: [id], onDelete: Cascade)
+  senderType       String
+  message          String
+  suggestedChanges String?
+  createdAt        DateTime @default(now())
+}
