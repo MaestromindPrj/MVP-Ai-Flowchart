@@ -44,7 +44,8 @@ A modern B2B SaaS web application for business consultants and enterprise teams 
 ### Installation & Launch
 
 ```bash
-# 1. Install dependencies
+# 1. Copy .env.example to .env and add your GROQ_API_KEY (see AI_SETUP.md)
+# Install dependencies
 npm install
 
 # 2. Push database schema and seed initial processes
@@ -73,48 +74,9 @@ On the login screen (`/login`), click **"Sign In with Demo Consultant Account"**
 
 ---
 
-## 5. AI Service Integration Guide for Developers
+## 5. AI Service Integration
 
-The AI subsystem is isolated behind an abstraction layer in `src/lib/ai/`.
-
-### Directory Structure
-```text
-src/lib/ai/
-├── types.ts                # AIProcessService interface and ProcessData JSON schema
-├── mock-process-service.ts  # Mock implementation for deterministic MVP simulation
-└── process-service.ts      # Singleton factory providing active AI service instance
-```
-
-### AI Interface Definition (`src/lib/ai/types.ts`)
-```typescript
-export interface AIProcessService {
-  sendMessage(
-    processId: string,
-    message: string,
-    currentProcess: ProcessData
-  ): Promise<AIProcessResponse>;
-}
-```
-
-### How to Connect a Real AI Provider (OpenAI / Gemini / Anthropic)
-1. Create `src/lib/ai/openai-process-service.ts` or `src/lib/ai/gemini-process-service.ts` implementing `AIProcessService`.
-2. Update the factory in `src/lib/ai/process-service.ts`:
-
-```typescript
-import { AIProcessService } from "./types";
-import { RealAIProcessService } from "./real-process-service";
-
-let activeServiceInstance: AIProcessService | null = null;
-
-export function getAIProcessService(): AIProcessService {
-  if (!activeServiceInstance) {
-    activeServiceInstance = new RealAIProcessService();
-  }
-  return activeServiceInstance;
-}
-```
-
-No UI components, database models, or canvas routes need to be modified.
+The Process Assistant uses the Groq API by default. See [AI_SETUP.md](AI_SETUP.md) for free-key setup, environment settings, limitations, and tests. The original preset service is available with AI_PROVIDER=mock.
 
 ---
 
@@ -152,3 +114,4 @@ src/
     ├── schema.prisma
     └── seed.js
 ```
+
