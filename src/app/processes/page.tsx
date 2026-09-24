@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   GitFork,
@@ -15,9 +16,12 @@ import {
   Users,
   Calendar,
   MoreVertical,
+  Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDate } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
+import { DeleteProcessModal } from "@/components/process/DeleteProcessModal";
 
 interface ProcessItem {
   id: string;
@@ -33,6 +37,8 @@ interface ProcessItem {
 }
 
 export default function ProcessesListPage() {
+  const router = useRouter();
+  const toast = useToast();
   const [processes, setProcesses] = useState<ProcessItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -40,6 +46,7 @@ export default function ProcessesListPage() {
   const [deptFilter, setDeptFilter] = useState("All");
   const [sortBy, setSortBy] = useState<"updated" | "name" | "version">("updated");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
+  const [processToDelete, setProcessToDelete] = useState<ProcessItem | null>(null);
 
   useEffect(() => {
     async function loadProcesses() {
@@ -77,6 +84,28 @@ export default function ProcessesListPage() {
   const departments = Array.from(
     new Set(processes.map((p) => p.department).filter(Boolean))
   );
+
+  const handleDeleteProcess = async () => {
+    if (!processToDelete) return;
+    try {
+      const res = await fetch(`/api/processes/${processToDelete.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setProcesses((prev) => prev.filter((p) => p.id !== processToDelete.id));
+        toast.success(
+          "Process deleted",
+          `"${processToDelete.name}" was permanently deleted.`
+        );
+        setProcessToDelete(null);
+      } else {
+        const data = await res.json();
+        toast.error("Failed to delete", data.error || "Could not delete process.");
+      }
+    } catch (err) {
+      toast.error("Error", "An unexpected error occurred while deleting.");
+    }
+  };
 
   return (
     <AppShell
@@ -206,11 +235,12 @@ export default function ProcessesListPage() {
           <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
             <div className="divide-y divide-slate-100">
               <div className="grid grid-cols-12 px-6 py-3 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                <div className="col-span-5">Process Name</div>
+                <div className="col-span-4">Process Name</div>
                 <div className="col-span-2">Department / Owner</div>
                 <div className="col-span-2">Version</div>
                 <div className="col-span-2">Status</div>
                 <div className="col-span-1 text-right">Updated</div>
+                <div className="col-span-1 text-right">Actions</div>
               </div>
 
               {sortedProcesses.map((proc) => {
@@ -218,12 +248,12 @@ export default function ProcessesListPage() {
                   proc.status === "Finalized" || proc.status === "Approved";
 
                 return (
-                  <Link
+                  <div
                     key={proc.id}
-                    href={`/processes/${proc.id}`}
-                    className="grid grid-cols-12 items-center px-6 py-4 hover:bg-slate-50/80 transition-colors group"
+                    onClick={() => router.push(`/processes/${proc.id}`)}
+                    className="grid grid-cols-12 items-center px-6 py-4 hover:bg-slate-50/80 transition-colors group cursor-pointer"
                   >
-                    <div className="col-span-5 flex items-center gap-3 pr-4">
+                    <div className="col-span-4 flex items-center gap-3 pr-4">
                       <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                         <GitFork className="w-4 h-4" />
                       </div>
@@ -274,7 +304,21 @@ export default function ProcessesListPage() {
                     <div className="col-span-1 text-right text-xs text-slate-400 font-mono">
                       {formatDate(proc.updatedAt)}
                     </div>
-                  </Link>
+
+                    <div className="col-span-1 text-right flex items-center justify-end">
+                      <button
+                        type="button"
+                        title="Delete process"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProcessToDelete(proc);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 );
               })}
             </div>
@@ -286,10 +330,10 @@ export default function ProcessesListPage() {
                 proc.status === "Finalized" || proc.status === "Approved";
 
               return (
-                <Link
+                <div
                   key={proc.id}
-                  href={`/processes/${proc.id}`}
-                  className="p-5 bg-white rounded-xl border border-slate-200 shadow-subtle hover:border-blue-300 hover:shadow-card transition-all flex flex-col justify-between group"
+                  onClick={() => router.push(`/processes/${proc.id}`)}
+                  className="p-5 bg-white rounded-xl border border-slate-200 shadow-subtle hover:border-blue-300 hover:shadow-card transition-all flex flex-col justify-between group cursor-pointer"
                 >
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2">
@@ -309,6 +353,17 @@ export default function ProcessesListPage() {
                         >
                           {proc.status}
                         </span>
+                        <button
+                          type="button"
+                          title="Delete process"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProcessToDelete(proc);
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
 
@@ -331,12 +386,19 @@ export default function ProcessesListPage() {
                     </div>
                     <span className="font-mono">{formatDate(proc.updatedAt)}</span>
                   </div>
-                </Link>
+                </div>
               );
             })}
           </div>
         )}
       </div>
+
+      <DeleteProcessModal
+        isOpen={!!processToDelete}
+        onClose={() => setProcessToDelete(null)}
+        onConfirm={handleDeleteProcess}
+        processName={processToDelete?.name || ""}
+      />
     </AppShell>
   );
 }

@@ -141,11 +141,26 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await prisma.process.delete({
+
+    const existingProcess = await prisma.process.findUnique({
       where: { id },
     });
 
-    return NextResponse.json({ success: true });
+    if (!existingProcess) {
+      return NextResponse.json(
+        { error: "Process not found" },
+        { status: 404 }
+      );
+    }
+
+    await prisma.$transaction([
+      prisma.processMessage.deleteMany({ where: { processId: id } }),
+      prisma.processParticipant.deleteMany({ where: { processId: id } }),
+      prisma.processVersion.deleteMany({ where: { processId: id } }),
+      prisma.process.delete({ where: { id } }),
+    ]);
+
+    return NextResponse.json({ success: true, message: "Process deleted successfully" });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Failed to delete process" },

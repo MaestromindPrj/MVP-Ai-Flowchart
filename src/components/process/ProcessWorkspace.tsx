@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
   CheckCircle,
@@ -17,6 +18,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Eye,
+  Trash2,
 } from "lucide-react";
 import { ProcessCanvas } from "./ProcessCanvas";
 import { ProcessChat, ChatMessage } from "./ProcessChat";
@@ -24,6 +26,7 @@ import { ProcessInfo, Participant } from "./ProcessInfo";
 import { NodeEditor } from "./NodeEditor";
 import { VersionHistoryModal, ProcessVersionItem } from "./VersionHistoryModal";
 import { FinalizeModal } from "./FinalizeModal";
+import { DeleteProcessModal } from "./DeleteProcessModal";
 import { ProcessData, ProcessNode, ProcessEdge } from "@/lib/ai/types";
 import { useToast } from "@/components/ui/Toast";
 
@@ -32,6 +35,7 @@ interface ProcessWorkspaceProps {
 }
 
 export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
+  const router = useRouter();
   const toast = useToast();
 
   const [process, setProcess] = useState(initialProcess);
@@ -52,6 +56,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
   const [isNodeEditorOpen, setIsNodeEditorOpen] = useState(false);
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const [isFinalizeOpen, setIsFinalizeOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
@@ -318,6 +323,26 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
     }
   }, [process.id, toast]);
 
+  const handleDeleteProcess = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/processes/${process.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        toast.success(
+          "Process deleted",
+          `"${process.name}" was permanently deleted.`
+        );
+        router.push("/processes");
+      } else {
+        const data = await res.json();
+        toast.error("Failed to delete", data.error || "Could not delete process.");
+      }
+    } catch (err) {
+      toast.error("Error", "An unexpected error occurred while deleting.");
+    }
+  }, [process.id, process.name, router, toast]);
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 select-none">
       <header className="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 z-30 shadow-subtle">
@@ -408,6 +433,14 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             )}
 
             <button
+              onClick={() => setIsDeleteOpen(true)}
+              title="Delete Process"
+              className="h-10 w-10 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 text-xs transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+
+            <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
               title={rightPanelOpen ? "Collapse Info" : "Expand Info"}
               className={`h-10 w-10 flex items-center justify-center rounded-lg border text-xs transition-colors ${
@@ -457,6 +490,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             onRemoveParticipant={handleRemoveParticipant}
             onOpenVersions={() => setIsVersionsOpen(true)}
             onOpenFinalize={() => setIsFinalizeOpen(true)}
+            onOpenDelete={() => setIsDeleteOpen(true)}
             isReadOnly={isFinalized}
           />
         )}
@@ -489,6 +523,13 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
         onFinalize={handleFinalize}
         processName={process.name}
         versionNumber={process.currentVersionNumber}
+      />
+
+      <DeleteProcessModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDeleteProcess}
+        processName={process.name}
       />
     </div>
   );
