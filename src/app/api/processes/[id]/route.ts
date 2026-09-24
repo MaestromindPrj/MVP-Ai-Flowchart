@@ -93,12 +93,36 @@ export async function PATCH(
     }
 
     const updateData: any = {};
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description;
-    if (department !== undefined) updateData.department = department;
-    if (ownerName !== undefined) updateData.ownerName = ownerName;
-    if (ownerEmail !== undefined) updateData.ownerEmail = ownerEmail;
-    if (status !== undefined) updateData.status = status;
+    if (name !== undefined) {
+      if (!name.trim()) {
+        return NextResponse.json(
+          { error: "Process name cannot be empty" },
+          { status: 400 }
+        );
+      }
+      updateData.name = name.trim();
+    }
+    if (description !== undefined) {
+      updateData.description = description?.trim() || null;
+    }
+    if (department !== undefined) {
+      updateData.department = department.trim();
+    }
+    if (ownerName !== undefined) {
+      if (!ownerName.trim()) {
+        return NextResponse.json(
+          { error: "Owner name cannot be empty" },
+          { status: 400 }
+        );
+      }
+      updateData.ownerName = ownerName.trim();
+    }
+    if (ownerEmail !== undefined) {
+      updateData.ownerEmail = ownerEmail?.trim() || null;
+    }
+    if (status !== undefined) {
+      updateData.status = status;
+    }
 
     if (processData !== undefined) {
       const activeVersion =

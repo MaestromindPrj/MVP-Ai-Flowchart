@@ -17,11 +17,13 @@ import {
   Calendar,
   MoreVertical,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDate } from "@/lib/utils";
 import { useToast } from "@/components/ui/Toast";
 import { DeleteProcessModal } from "@/components/process/DeleteProcessModal";
+import { EditProcessModal, ProcessFormData } from "@/components/process/EditProcessModal";
 
 interface ProcessItem {
   id: string;
@@ -29,6 +31,7 @@ interface ProcessItem {
   description: string | null;
   department: string;
   ownerName: string;
+  ownerEmail?: string | null;
   status: string;
   currentVersionNumber: number;
   updatedAt: string;
@@ -47,6 +50,7 @@ export default function ProcessesListPage() {
   const [sortBy, setSortBy] = useState<"updated" | "name" | "version">("updated");
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [processToDelete, setProcessToDelete] = useState<ProcessItem | null>(null);
+  const [processToEdit, setProcessToEdit] = useState<ProcessItem | null>(null);
 
   useEffect(() => {
     async function loadProcesses() {
@@ -84,6 +88,31 @@ export default function ProcessesListPage() {
   const departments = Array.from(
     new Set(processes.map((p) => p.department).filter(Boolean))
   );
+
+  const handleSaveEditedProcess = async (formData: ProcessFormData) => {
+    if (!processToEdit) return;
+    try {
+      const res = await fetch(`/api/processes/${processToEdit.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update process.");
+      }
+
+      const data = await res.json();
+      setProcesses((prev) =>
+        prev.map((p) => (p.id === processToEdit.id ? { ...p, ...data.process } : p))
+      );
+      toast.success("Process updated", `Saved changes to "${data.process.name}"`);
+      setProcessToEdit(null);
+    } catch (err: any) {
+      throw err;
+    }
+  };
 
   const handleDeleteProcess = async () => {
     if (!processToDelete) return;
@@ -305,7 +334,18 @@ export default function ProcessesListPage() {
                       {formatDate(proc.updatedAt)}
                     </div>
 
-                    <div className="col-span-1 text-right flex items-center justify-end">
+                    <div className="col-span-1 text-right flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        title="Edit process"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProcessToEdit(proc);
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
                       <button
                         type="button"
                         title="Delete process"
@@ -355,12 +395,23 @@ export default function ProcessesListPage() {
                         </span>
                         <button
                           type="button"
+                          title="Edit process"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProcessToEdit(proc);
+                          }}
+                          className="p-1 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors ml-1"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
                           title="Delete process"
                           onClick={(e) => {
                             e.stopPropagation();
                             setProcessToDelete(proc);
                           }}
-                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-1"
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -398,6 +449,13 @@ export default function ProcessesListPage() {
         onClose={() => setProcessToDelete(null)}
         onConfirm={handleDeleteProcess}
         processName={processToDelete?.name || ""}
+      />
+
+      <EditProcessModal
+        isOpen={!!processToEdit}
+        onClose={() => setProcessToEdit(null)}
+        process={processToEdit}
+        onSave={handleSaveEditedProcess}
       />
     </AppShell>
   );
