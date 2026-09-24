@@ -19,6 +19,7 @@ import {
   PanelRightOpen,
   Eye,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { ProcessCanvas } from "./ProcessCanvas";
 import { ProcessChat, ChatMessage } from "./ProcessChat";
@@ -27,6 +28,8 @@ import { NodeEditor } from "./NodeEditor";
 import { VersionHistoryModal, ProcessVersionItem } from "./VersionHistoryModal";
 import { FinalizeModal } from "./FinalizeModal";
 import { DeleteProcessModal } from "./DeleteProcessModal";
+import { EditProcessModal, ProcessFormData } from "./EditProcessModal";
+import { EditFinalizedModal } from "./EditFinalizedModal";
 import { ProcessData, ProcessNode, ProcessEdge } from "@/lib/ai/types";
 import { useToast } from "@/components/ui/Toast";
 
@@ -57,6 +60,8 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const [isFinalizeOpen, setIsFinalizeOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isEditFinalizedOpen, setIsEditFinalizedOpen] = useState(false);
 
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
@@ -323,6 +328,84 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
     }
   }, [process.id, toast]);
 
+  const handleUnlockFinalized = useCallback(
+    async (mode: "new_version" | "unlock_current", summary?: string) => {
+      try {
+        if (mode === "new_version") {
+          const res = await fetch(`/api/processes/${process.id}/versions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              processData: { nodes, edges },
+              changeSummary:
+                summary || `Revision of Version ${process.currentVersionNumber}`,
+            }),
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "Failed to create new revision.");
+          }
+          const data = await res.json();
+          setProcess((prev: any) => ({
+            ...prev,
+            currentVersionNumber: data.version.versionNumber,
+            status: "Draft",
+          }));
+          toast.success(
+            "New Revision Created",
+            `Version ${data.version.versionNumber} is in Draft mode. You can now edit the flowchart.`
+          );
+        } else {
+          const res = await fetch(`/api/processes/${process.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "Draft" }),
+          });
+          if (!res.ok) {
+            const data = await res.json();
+            throw new Error(data.error || "Failed to unlock process.");
+          }
+          const data = await res.json();
+          setProcess((prev: any) => ({
+            ...prev,
+            status: "Draft",
+          }));
+          toast.success(
+            "Flowchart Unlocked",
+            `Version ${process.currentVersionNumber} is now in Draft mode and fully editable.`
+          );
+        }
+      } catch (err: any) {
+        toast.error("Error", err?.message || "Failed to unlock flowchart");
+        throw err;
+      }
+    },
+    [process.id, process.currentVersionNumber, nodes, edges, toast]
+  );
+
+  const handleUpdateProcess = useCallback(
+    async (formData: ProcessFormData) => {
+      const res = await fetch(`/api/processes/${process.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update process details.");
+      }
+
+      const data = await res.json();
+      setProcess((prev: any) => ({
+        ...prev,
+        ...data.process,
+      }));
+      toast.success("Process updated", `Saved changes to "${data.process.name}"`);
+    },
+    [process.id, toast]
+  );
+
   const handleDeleteProcess = useCallback(async () => {
     try {
       const res = await fetch(`/api/processes/${process.id}`, {
@@ -361,6 +444,14 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             <h1 className="text-sm font-bold text-slate-900 truncate">
               {process.name}
             </h1>
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(true)}
+              title="Edit Process Details"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
             <span
               className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide shrink-0 ${
                 isFinalized
@@ -422,7 +513,16 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
               <span>Docs & Export</span>
             </Link>
 
-            {!isFinalized && (
+            {isFinalized ? (
+              <button
+                onClick={() => setIsEditFinalizedOpen(true)}
+                className="inline-flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
+                title="Unlock or create a new revision to edit this flowchart"
+              >
+                <Pencil className="w-4 h-4" />
+                <span>Edit Flowchart</span>
+              </button>
+            ) : (
               <button
                 onClick={() => setIsFinalizeOpen(true)}
                 className="inline-flex items-center gap-2 h-10 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
@@ -479,6 +579,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             canUndo={historyIndex.current > 0}
             canRedo={historyIndex.current < historyStack.current.length - 1}
             isReadOnly={isFinalized}
+            onUnlockToEdit={() => setIsEditFinalizedOpen(true)}
           />
         </div>
 
@@ -491,6 +592,8 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             onOpenVersions={() => setIsVersionsOpen(true)}
             onOpenFinalize={() => setIsFinalizeOpen(true)}
             onOpenDelete={() => setIsDeleteOpen(true)}
+            onOpenEdit={() => setIsEditOpen(true)}
+            onUnlockToEdit={() => setIsEditFinalizedOpen(true)}
             isReadOnly={isFinalized}
           />
         )}
@@ -498,7 +601,9 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
 
       <NodeEditor
         node={selectedNode}
-        isOpen={isNodeEditorOpen && !isFinalized}
+        isOpen={isNodeEditorOpen}
+        isReadOnly={isFinalized}
+        onUnlockToEdit={() => setIsEditFinalizedOpen(true)}
         onClose={() => {
           setSelectedNode(null);
           setIsNodeEditorOpen(false);
@@ -530,6 +635,21 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={handleDeleteProcess}
         processName={process.name}
+      />
+
+      <EditProcessModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        process={process}
+        onSave={handleUpdateProcess}
+      />
+
+      <EditFinalizedModal
+        isOpen={isEditFinalizedOpen}
+        onClose={() => setIsEditFinalizedOpen(false)}
+        processName={process.name}
+        currentVersionNumber={process.currentVersionNumber}
+        onUnlock={handleUnlockFinalized}
       />
     </div>
   );

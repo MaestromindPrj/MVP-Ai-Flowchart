@@ -71,11 +71,12 @@ export async function POST(
       },
     });
 
-    await prisma.process.update({
+    const updatedProcess = await prisma.process.update({
       where: { id },
       data: {
         currentVersionNumber: nextVersionNumber,
         currentVersionId: newVersion.id,
+        status: "Draft",
       },
     });
 
@@ -85,6 +86,7 @@ export async function POST(
           ...newVersion,
           processData: processData || { nodes: [], edges: [] },
         },
+        process: updatedProcess,
       },
       { status: 201 }
     );

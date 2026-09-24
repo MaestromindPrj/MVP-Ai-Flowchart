@@ -29,6 +29,8 @@ import {
   X,
   Check,
   Trash2,
+  Lock,
+  Pencil,
 } from "lucide-react";
 import { StartNode } from "../canvas/nodes/StartNode";
 import { TaskNode } from "../canvas/nodes/TaskNode";
@@ -50,6 +52,7 @@ interface ProcessCanvasProps {
   canUndo?: boolean;
   canRedo?: boolean;
   isReadOnly?: boolean;
+  onUnlockToEdit?: () => void;
 }
 
 export function ProcessCanvas({
@@ -63,6 +66,7 @@ export function ProcessCanvas({
   canUndo = false,
   canRedo = false,
   isReadOnly = false,
+  onUnlockToEdit,
 }: ProcessCanvasProps) {
   const [showMiniMap, setShowMiniMap] = useState(false);
   const [layoutDir, setLayoutDir] = useState<"TB" | "LR">("TB");
@@ -364,6 +368,26 @@ export function ProcessCanvas({
             </button>
           </div>
         </Panel>
+
+        {isReadOnly && onUnlockToEdit && (
+          <Panel position="top-center" className="m-4">
+            <div className="bg-white/95 backdrop-blur-md border border-slate-200 shadow-md rounded-xl px-4 py-2 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-1.5 text-xs text-slate-700 font-medium">
+                <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Flowchart is Finalized</span>
+              </div>
+              <div className="h-4 w-px bg-slate-200" />
+              <button
+                type="button"
+                onClick={onUnlockToEdit}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold rounded-lg shadow-xs transition-all"
+              >
+                <Pencil className="w-3 h-3" />
+                <span>Edit Flowchart</span>
+              </button>
+            </div>
+          </Panel>
+        )}
 
         {selectedEdge && !isReadOnly && (
           <Panel position="top-right" className="m-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Trash2, Check, ShieldCheck, CheckSquare, GitBranch, Play, CheckCircle2 } from "lucide-react";
+import { X, Trash2, Check, ShieldCheck, CheckSquare, GitBranch, Play, CheckCircle2, Lock, Pencil } from "lucide-react";
 import { ProcessNode, ProcessNodeType } from "@/lib/ai/types";
 
 interface NodeEditorProps {
@@ -10,6 +10,8 @@ interface NodeEditorProps {
   onClose: () => void;
   onSave: (updatedNode: ProcessNode) => void;
   onDelete: (nodeId: string) => void;
+  isReadOnly?: boolean;
+  onUnlockToEdit?: () => void;
 }
 
 export function NodeEditor({
@@ -18,6 +20,8 @@ export function NodeEditor({
   onClose,
   onSave,
   onDelete,
+  isReadOnly = false,
+  onUnlockToEdit,
 }: NodeEditorProps) {
   const [formData, setFormData] = useState<Partial<ProcessNode>>({});
 
@@ -59,7 +63,9 @@ export function NodeEditor({
     <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-200">
       <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
         <div>
-          <h3 className="text-sm font-bold text-slate-900">Edit Step</h3>
+          <h3 className="text-sm font-bold text-slate-900">
+            {isReadOnly ? "View Step" : "Edit Step"}
+          </h3>
           <p className="text-xs text-slate-500">Configure flowchart node parameters</p>
         </div>
         <button
@@ -69,6 +75,27 @@ export function NodeEditor({
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {isReadOnly && (
+        <div className="p-3 bg-amber-50/90 border-b border-amber-200/80 flex items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-1.5 text-amber-800 font-medium">
+            <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+            <span>Flowchart is finalized & locked</span>
+          </div>
+          {onUnlockToEdit && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onUnlockToEdit();
+              }}
+              className="px-2.5 py-1 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors shrink-0"
+            >
+              Unlock to Edit
+            </button>
+          )}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
         <div>
@@ -188,35 +215,62 @@ export function NodeEditor({
       </form>
 
       <div className="p-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            onDelete(node.id);
-            onClose();
-          }}
-          className="inline-flex items-center gap-1.5 h-10 px-3.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg border border-red-200 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          <span>Delete Step</span>
-        </button>
+        {isReadOnly ? (
+          <div className="w-full flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-10 px-4 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+            >
+              Close
+            </button>
+            {onUnlockToEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onUnlockToEdit();
+                }}
+                className="inline-flex items-center gap-2 h-10 px-4 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all"
+              >
+                <Pencil className="w-4 h-4" />
+                <span>Edit Flowchart</span>
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                onDelete(node.id);
+                onClose();
+              }}
+              className="inline-flex items-center gap-1.5 h-10 px-3.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg border border-red-200 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Delete Step</span>
+            </button>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-10 px-4 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className="inline-flex items-center gap-2 h-10 px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm transition-all"
-          >
-            <Check className="w-4 h-4" />
-            <span>Save Changes</span>
-          </button>
-        </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-10 px-4 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                className="inline-flex items-center gap-2 h-10 px-5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 rounded-lg shadow-sm transition-all"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
