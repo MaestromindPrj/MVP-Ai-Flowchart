@@ -4,9 +4,6 @@ declare global {
   var prismaGlobal: PrismaClient | undefined;
 }
 
-if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = "file:./dev.db";
-}
 
 export const prisma =
   globalThis.prismaGlobal ??
