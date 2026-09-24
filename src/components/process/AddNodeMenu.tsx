@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Plus, CheckSquare, ShieldCheck, GitBranch, Play, CheckCircle2, ChevronUp } from "lucide-react";
+import { Plus, CheckSquare, ShieldCheck, GitBranch, Play, CheckCircle2, ChevronDown } from "lucide-react";
 import { ProcessNodeType } from "@/lib/ai/types";
 
 interface AddNodeMenuProps {
@@ -74,7 +74,7 @@ export function AddNodeMenu({ onAddNode }: AddNodeMenuProps) {
       >
         <Plus className="w-4 h-4" />
         <span>Add Step</span>
-        <ChevronUp
+        <ChevronDown
           className={`w-3.5 h-3.5 transition-transform ${
             isOpen ? "rotate-180" : ""
           }`}
@@ -82,7 +82,7 @@ export function AddNodeMenu({ onAddNode }: AddNodeMenuProps) {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 bottom-full mb-2 w-72 bg-white rounded-lg shadow-dropdown border border-slate-200 p-1.5 z-40 animate-in fade-in zoom-in-95 duration-150">
+        <div className="absolute left-0 top-full mt-2 w-72 bg-white rounded-lg shadow-dropdown border border-slate-200 p-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
           <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Choose Step Type
           </div>

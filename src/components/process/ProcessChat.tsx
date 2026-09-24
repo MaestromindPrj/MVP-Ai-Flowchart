@@ -84,11 +84,10 @@ export function ProcessChat({
         }),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to process message");
-      }
-
       const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to process message");
+      }
 
       const aiMessage: ChatMessage = {
         id: `ai-msg-${Date.now()}`,
@@ -112,7 +111,7 @@ export function ProcessChat({
         id: `err-msg-${Date.now()}`,
         senderType: "AI",
         message:
-          "Sorry, I encountered an error while updating the process. Please try again.",
+          err instanceof Error ? err.message : "Sorry, I encountered an error while updating the process. Please try again.",
         createdAt: new Date().toISOString(),
       };
       onNewMessage(errorMessage);
@@ -141,7 +140,7 @@ export function ProcessChat({
             </div>
             <div className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              AI Service Active
+              AI Process Assistant
             </div>
           </div>
         </div>
@@ -260,6 +259,7 @@ export function ProcessChat({
         >
           <input
             type="text"
+            maxLength={4000}
             disabled={isLoading || isReadOnly}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}

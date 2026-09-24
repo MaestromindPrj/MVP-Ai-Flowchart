@@ -46,10 +46,16 @@ export interface AIProcessResponse {
   suggestedPrompts?: string[];
 }
 
+export interface AIConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface AIProcessService {
   sendMessage(
     processId: string,
     message: string,
-    currentProcess: ProcessData
+    currentProcess: ProcessData,
+    history?: AIConversationMessage[]
   ): Promise<AIProcessResponse>;
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   ArrowRight,
@@ -14,9 +15,12 @@ import {
   ChevronRight,
   ShieldCheck,
   TrendingUp,
+  Trash2,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { formatDate } from "@/lib/utils";
+import { useToast } from "@/components/ui/Toast";
+import { DeleteProcessModal } from "@/components/process/DeleteProcessModal";
 
 interface ProcessItem {
   id: string;
@@ -31,9 +35,12 @@ interface ProcessItem {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const toast = useToast();
   const [processes, setProcesses] = useState<ProcessItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [processToDelete, setProcessToDelete] = useState<ProcessItem | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -69,6 +76,28 @@ export default function DashboardPage() {
     (p) => p.status === "Finalized" || p.status === "Approved"
   ).length;
   const recentCount = processes.length > 0 ? Math.min(processes.length, 3) : 0;
+
+  const handleDeleteProcess = async () => {
+    if (!processToDelete) return;
+    try {
+      const res = await fetch(`/api/processes/${processToDelete.id}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setProcesses((prev) => prev.filter((p) => p.id !== processToDelete.id));
+        toast.success(
+          "Process deleted",
+          `"${processToDelete.name}" was permanently deleted.`
+        );
+        setProcessToDelete(null);
+      } else {
+        const data = await res.json();
+        toast.error("Failed to delete", data.error || "Could not delete process.");
+      }
+    } catch (err) {
+      toast.error("Error", "An unexpected error occurred while deleting.");
+    }
+  };
 
   return (
     <AppShell
@@ -193,11 +222,12 @@ export default function DashboardPage() {
             ) : (
               <div className="divide-y divide-slate-100">
                 <div className="grid grid-cols-12 px-5 py-3 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  <div className="col-span-5">Process Name</div>
+                  <div className="col-span-4">Process Name</div>
                   <div className="col-span-2">Owner / Dept</div>
                   <div className="col-span-2">Version</div>
                   <div className="col-span-2">Status</div>
                   <div className="col-span-1 text-right">Updated</div>
+                  <div className="col-span-1 text-right">Actions</div>
                 </div>
 
                 {filteredProcesses.map((proc) => {
@@ -205,12 +235,12 @@ export default function DashboardPage() {
                     proc.status === "Finalized" || proc.status === "Approved";
 
                   return (
-                    <Link
+                    <div
                       key={proc.id}
-                      href={`/processes/${proc.id}`}
-                      className="grid grid-cols-12 items-center px-5 py-3.5 hover:bg-slate-50/80 transition-colors group"
+                      onClick={() => router.push(`/processes/${proc.id}`)}
+                      className="grid grid-cols-12 items-center px-5 py-3.5 hover:bg-slate-50/80 transition-colors group cursor-pointer"
                     >
-                      <div className="col-span-5 flex items-center gap-3 pr-4">
+                      <div className="col-span-4 flex items-center gap-3 pr-4">
                         <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                           <GitFork className="w-4 h-4" />
                         </div>
@@ -261,7 +291,21 @@ export default function DashboardPage() {
                       <div className="col-span-1 text-right text-xs text-slate-400 font-mono">
                         {formatDate(proc.updatedAt)}
                       </div>
-                    </Link>
+
+                      <div className="col-span-1 text-right flex items-center justify-end">
+                        <button
+                          type="button"
+                          title="Delete process"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProcessToDelete(proc);
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -269,6 +313,13 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      <DeleteProcessModal
+        isOpen={!!processToDelete}
+        onClose={() => setProcessToDelete(null)}
+        onConfirm={handleDeleteProcess}
+        processName={processToDelete?.name || ""}
+      />
     </AppShell>
   );
 }

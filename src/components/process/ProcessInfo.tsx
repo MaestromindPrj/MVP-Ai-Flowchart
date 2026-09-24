@@ -43,6 +43,7 @@ interface ProcessInfoProps {
   onRemoveParticipant: (participantId: string) => void;
   onOpenVersions: () => void;
   onOpenFinalize: () => void;
+  onOpenDelete?: () => void;
   isReadOnly?: boolean;
 }
 
@@ -53,6 +54,7 @@ export function ProcessInfo({
   onRemoveParticipant,
   onOpenVersions,
   onOpenFinalize,
+  onOpenDelete,
   isReadOnly = false,
 }: ProcessInfoProps) {
   const [showAddForm, setShowAddForm] = useState(false);
@@ -283,6 +285,19 @@ export function ProcessInfo({
             <p className="text-[10px] text-emerald-600 mt-0.5">
               This version is approved and locked.
             </p>
+          </div>
+        )}
+
+        {onOpenDelete && (
+          <div className="pt-2 border-t border-slate-200/80">
+            <button
+              type="button"
+              onClick={onOpenDelete}
+              className="w-full flex items-center justify-center gap-2 h-9 px-4 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-200 border border-slate-200 rounded-lg text-xs font-semibold text-slate-500 transition-colors"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-red-600" />
+              <span>Delete Process</span>
+            </button>
           </div>
         )}
       </div>
