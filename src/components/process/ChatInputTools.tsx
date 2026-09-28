@@ -56,6 +56,9 @@ export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { proc
     const controller = new AbortController(); upload.current = controller;
     try {
       const res = await fetch("/api/processes/" + processId + "/document?name=" + encodeURIComponent(file.name), { method: "POST", body: file, signal: controller.signal });
+      if (!res.headers.get("content-type")?.includes("application/json")) {
+        throw new Error(res.status === 413 ? "The hosting server rejected the file size. Try a smaller document." : res.status === 504 ? "The hosting server timed out while reading the document. Try fewer pages." : `Document upload failed (HTTP ${res.status}). Check deployment server logs.`);
+      }
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Unable to read document");
       append.current("Create or update the editable flowchart from this process document. Reconstruct any existing diagram, preserving its steps, arrow directions, labeled branches, loops, and owners. Ask about unreadable or ambiguous details instead of guessing:\n\n" + data.text);
       setNotice("Imported " + data.name);
