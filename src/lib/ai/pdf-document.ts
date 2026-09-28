@@ -1,5 +1,10 @@
 import { PDFParse } from "pdf-parse";
+import { getData } from "pdf-parse/worker";
 import { AIServiceError } from "./validation";
+
+// Use the packaged worker rather than a relative dynamic import, which can
+// resolve against a generated Next.js chunk in a deployed function.
+PDFParse.setWorker(getData());
 
 const MAX_TEXT = 20000;
 const PROMPT = `Read these PDF pages as source material for creating an editable business flowchart.
