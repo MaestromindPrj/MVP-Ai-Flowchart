@@ -2,12 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeProcess } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import mammoth from "mammoth";
-import { readPDFDocument } from "@/lib/ai/pdf-document";
 import { AIServiceError } from "@/lib/ai/validation";
 export const runtime = "nodejs";
 export const maxDuration = 300;
 const MAX_BYTES = 4 * 1024 * 1024;
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  let stage = "authorization";
+  try {
   const { id } = await params;
   const denied = await authorizeProcess(request, id, "edit");
   if (denied) return denied;
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (Number(request.headers.get("content-length")) > MAX_BYTES) return NextResponse.json({ error: "Maximum file size is 4 MB" }, { status: 413 });
   const reader = request.body?.getReader();
   if (!reader) return NextResponse.json({ error: "Select a document" }, { status: 400 });
-  try {
+    stage = "upload";
     const chunks: Uint8Array[] = []; let size = 0;
     while (true) {
       const { done, value } = await reader.read(); if (done) break;
@@ -30,8 +31,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const buffer = Buffer.concat(chunks); let text = "";
     let pages: number | undefined;
     if (extension === "pdf") {
+      stage = "pdf-runtime";
+      const { readPDFDocument } = await import("@/lib/ai/pdf-document");
+      stage = "pdf-reading";
       ({ text, pages } = await readPDFDocument(buffer, request.signal));
     } else if (extension === "docx") {
+      stage = "docx-reading";
       text = (await mammoth.extractRawText({ buffer })).value;
     } else {
       text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
@@ -43,6 +48,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ text, pages, visual: extension === "pdf", name: name.slice(0,200) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof AIServiceError) return NextResponse.json({ error: error.message }, { status: error.status });
-    return NextResponse.json({ error: "Unable to read this file. Password-protected or damaged PDFs must be unlocked or re-exported first. Otherwise use DOCX or UTF-8 text." }, { status: 422 });
+    const detail = error as { name?: string; code?: string; message?: string };
+    const message = typeof detail?.message === "string" ? detail.message : "";
+    const runtimeFailure = stage === "pdf-runtime" || /worker|canvas|DOMMatrix|native binding|Cannot find module|Cannot find package/i.test(message);
+    // Do not log credentials, document contents or provider response bodies.
+    console.error("Document import failed", { stage, name: detail?.name, code: detail?.code, runtimeFailure });
+    if (stage === "authorization") return NextResponse.json({ error: "Unable to check document access. Check the deployment database connection and server logs." }, { status: 503 });
+    if (runtimeFailure) return NextResponse.json({ error: "The deployed PDF renderer could not start. Check server logs, the Node.js version, and PDF worker/native canvas dependencies." }, { status: 503 });
+    if (detail?.name === "PasswordException") return NextResponse.json({ error: "This PDF needs a password. Upload an unlocked copy." }, { status: 422 });
+    return NextResponse.json({ error: "Unable to read this document. Try re-exporting it; if it works locally, check the deployment server logs." }, { status: 422 });
   }
 }
