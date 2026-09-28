@@ -1,3 +1,4 @@
+import { requireUser, accessibleProcesses, processPermission } from "@/lib/auth";
 import React from "react";
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
@@ -21,9 +22,10 @@ export default async function ProcessVersionsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const user = await requireUser();
   const { id } = await params;
   const process = await prisma.process.findUnique({
-    where: { id },
+    where: { id, ...accessibleProcesses(user.id) },
     include: {
       versions: {
         orderBy: { versionNumber: "desc" },

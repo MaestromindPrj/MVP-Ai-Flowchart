@@ -1,49 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
-
-export const dynamic = "force-dynamic";
-
+import { createSession, verifyPassword } from "@/lib/auth";
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, name } = body;
-
-    if (!email?.trim()) {
-      return NextResponse.json(
-        { error: "Email is required" },
-        { status: 400 }
-      );
-    }
-
-    let user = await prisma.user.findUnique({
-      where: { email: email.trim().toLowerCase() },
-      include: { organization: true },
-    });
-
-    if (!user) {
-      let org = await prisma.organization.findFirst();
-      if (!org) {
-        org = await prisma.organization.create({
-          data: { name: "Acme Global Enterprises" },
-        });
-      }
-
-      user = await prisma.user.create({
-        data: {
-          email: email.trim().toLowerCase(),
-          name: name?.trim() || email.split("@")[0],
-          role: "Senior Consultant",
-          organizationId: org.id,
-        },
-        include: { organization: true },
-      });
-    }
-
-    return NextResponse.json({ user, success: true });
-  } catch (error: any) {
-    return NextResponse.json(
-      { error: error.message || "Failed to log in" },
-      { status: 500 }
-    );
-  }
+    const { email, password } = await request.json();
+    if (typeof email !== "string" || typeof password !== "string" || password.length > 128) return NextResponse.json({ error: "Enter your email and password" }, { status: 400 });
+    const user = await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+    if (!await verifyPassword(password, user?.passwordHash || null) || !user) return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
+    await createSession(user.id);
+    return NextResponse.json({ success: true });
+  } catch { return NextResponse.json({ error: "Unable to sign in" }, { status: 500 }); }
 }

@@ -26,6 +26,7 @@ import { DeleteProcessModal } from "@/components/process/DeleteProcessModal";
 import { EditProcessModal, ProcessFormData } from "@/components/process/EditProcessModal";
 
 interface ProcessItem {
+  permission: "owner" | "edit" | "view";
   id: string;
   name: string;
   description: string | null;
@@ -289,6 +290,7 @@ export default function ProcessesListPage() {
                       <div className="min-w-0">
                         <div className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                           {proc.name}
+                          {proc.permission !== "owner" && <span className="ml-2 text-[10px] font-medium text-blue-600">{proc.permission === "edit" ? "Shared: can edit" : "Shared: view only"}</span>}
                         </div>
                         {proc.description && (
                           <div className="text-[11px] text-slate-400 truncate">
@@ -338,6 +340,7 @@ export default function ProcessesListPage() {
                       <button
                         type="button"
                         title="Edit process"
+                          disabled={proc.permission === "view"}
                         onClick={(e) => {
                           e.stopPropagation();
                           setProcessToEdit(proc);
@@ -349,6 +352,7 @@ export default function ProcessesListPage() {
                       <button
                         type="button"
                         title="Delete process"
+                          disabled={proc.permission !== "owner"}
                         onClick={(e) => {
                           e.stopPropagation();
                           setProcessToDelete(proc);
@@ -396,6 +400,7 @@ export default function ProcessesListPage() {
                         <button
                           type="button"
                           title="Edit process"
+                          disabled={proc.permission === "view"}
                           onClick={(e) => {
                             e.stopPropagation();
                             setProcessToEdit(proc);
@@ -407,6 +412,7 @@ export default function ProcessesListPage() {
                         <button
                           type="button"
                           title="Delete process"
+                          disabled={proc.permission !== "owner"}
                           onClick={(e) => {
                             e.stopPropagation();
                             setProcessToDelete(proc);
@@ -421,6 +427,7 @@ export default function ProcessesListPage() {
                     <div>
                       <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                         {proc.name}
+                          {proc.permission !== "owner" && <span className="ml-2 text-[10px] font-medium text-blue-600">{proc.permission === "edit" ? "Shared: can edit" : "Shared: view only"}</span>}
                       </h3>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-2">
                         {proc.description || "No description provided."}

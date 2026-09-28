@@ -48,9 +48,8 @@ A modern B2B SaaS web application for business consultants and enterprise teams 
 # Install dependencies
 npm install
 
-# 2. Push database schema and seed initial processes
+# 2. Apply the database schema (preserves existing records)
 npx prisma db push
-node prisma/seed.js
 
 # 3. Start development server
 npm run dev
@@ -60,12 +59,15 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 4. Demo Credentials & Seed Data
+## 4. User Accounts & Private Flowcharts
 
-On the login screen (`/login`), click **"Sign In with Demo Consultant Account"** or use:
-- **Email**: `alex@jvprocess.com`
-- **Role**: Senior Process Consultant
-- **Organization**: Acme Global Enterprises
+Open /login and choose **Create an account**. Each user supplies their name, email, and a password of 12-128 characters. Passwords are salted and hashed with scrypt. Random session tokens are stored in HttpOnly cookies; only token hashes are saved in the database. Sessions expire after seven days and are revoked on sign-out.
+
+Flowcharts are assigned to the signed-in creator on the server. Owners can click Share in the flowchart workspace and enter a registered user email with Can view or Can edit permission. Shared flowcharts appear in the recipient dashboard. Viewers can read and export; editors can modify the diagram, metadata, participants, messages, versions, and AI edits. Only creators can manage sharing or delete the entire flowchart. Owners can change or remove access; subsequent server requests enforce the new permission. Editing the display owner or adding participants does not grant access. Sharing does not send email or provide simultaneous live editing.
+
+After updating the code, run `npx prisma db push` and `npx prisma generate` before starting the app. Existing records are preserved: old users without password hashes cannot sign in, and old flowcharts without a creator stay hidden. An administrator must verify ownership before assigning legacy charts to a registered user by setting Process.creatorId. Do not infer access rights from editable owner names or emails.
+
+The optional seed script **replaces all existing data**. For a disposable demo database, set SEED_PASSWORD to a unique password of at least 12 characters before running it. The seeded login email is alex@jvprocess.com, and its charts belong only to that account. Do not run the seed script on an existing user database.
 
 ### Pre-Seeded Workflows:
 1. **Order Management**: Multi-step flow featuring intake, sales order, manager approval, high-value order decision branch (> $10k), finance approval, inventory allocation, and dispatch.
@@ -115,3 +117,13 @@ src/
     └── seed.js
 ```
 
+
+### Account isolation regression test
+
+With the development server on port 3100, run `node --env-file=.env scripts/test-user-isolation.cjs`. Set TEST_BASE_URL to use another local port. This creates two temporary accounts, checks access restrictions, and removes its test data. Use a development database.
+
+### Voice and document input
+
+In a draft flowchart, use **Voice** to dictate into the AI chat draft, then stop recording and review the transcript before sending. Voice requires a browser with SpeechRecognition support, microphone permission, and HTTPS (or localhost). Recognition uses the browser speech service and browser language; the app does not store audio. Typing and document import remain available when speech recognition is unsupported.
+
+Use **Import document** for PDF, DOCX, UTF-8 TXT, Markdown, or CSV. Limits: 4 MB per file, 30 PDF pages, and 20,000 extracted characters; the combined chat draft can contain 24,000 characters. Imports append editable text to the draft; nothing is sent to the AI until Send is pressed. Original files are not stored. Extracted text is included in the saved chat and sent to the configured AI provider when submitted. Image-only/scanned PDFs need OCR elsewhere; legacy .doc files are not supported. Owners and editors can import into editable flowcharts; viewers cannot.

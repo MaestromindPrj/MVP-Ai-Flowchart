@@ -1,7 +1,12 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
+const { randomBytes, scryptSync } = require("node:crypto");
 
 async function main() {
+  const password = process.env.SEED_PASSWORD;
+  if (!password || password.length < 12) throw new Error("Set SEED_PASSWORD to at least 12 characters before seeding. Seeding replaces all data.");
+  const salt = randomBytes(16).toString("hex");
+  const passwordHash = salt + ":" + scryptSync(password, salt, 64).toString("hex");
   await prisma.processMessage.deleteMany();
   await prisma.processParticipant.deleteMany();
   await prisma.processVersion.deleteMany();
@@ -17,6 +22,7 @@ async function main() {
 
   const user = await prisma.user.create({
     data: {
+      passwordHash,
       name: "Alex Morgan",
       email: "alex@jvprocess.com",
       role: "Senior Process Consultant",
@@ -126,6 +132,7 @@ async function main() {
 
   const orderProcess = await prisma.process.create({
     data: {
+      creatorId: user.id,
       organizationId: org.id,
       name: "Order Management",
       description: "End-to-end customer order processing, credit check, approval hierarchy, inventory allocation, and fulfillment workflow.",
@@ -300,6 +307,7 @@ async function main() {
 
   const salesProcess = await prisma.process.create({
     data: {
+      creatorId: user.id,
       organizationId: org.id,
       name: "Sales Process",
       description: "Enterprise sales pipeline qualification, technical demo, discounting approval, and contract execution.",
@@ -392,6 +400,7 @@ async function main() {
 
   const purchaseProcess = await prisma.process.create({
     data: {
+      creatorId: user.id,
       organizationId: org.id,
       name: "Purchase Process",
       description: "Procurement governance, vendor RFP qualification, budget approval, and purchase order fulfillment.",

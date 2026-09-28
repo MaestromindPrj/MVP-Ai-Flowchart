@@ -21,6 +21,7 @@ import {
   Trash2,
   Pencil,
 } from "lucide-react";
+import { ShareProcessModal } from "./ShareProcessModal";
 import { ProcessCanvas } from "./ProcessCanvas";
 import { ProcessChat, ChatMessage } from "./ProcessChat";
 import { ProcessInfo, Participant } from "./ProcessInfo";
@@ -38,6 +39,9 @@ interface ProcessWorkspaceProps {
 }
 
 export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
+  const isOwner = initialProcess.permission === "owner";
+  const canEdit = isOwner || initialProcess.permission === "edit";
+  const [sharing, setSharing] = useState(false);
   const router = useRouter();
   const toast = useToast();
 
@@ -82,7 +86,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
 
   const triggerAutosave = useCallback(
     (newNodes: ProcessNode[], newEdges: ProcessEdge[]) => {
-      if (isFinalized) return;
+      if (isFinalized || !canEdit) return;
 
       setSaveStatus("saving");
       if (saveTimeoutRef.current) {
@@ -109,7 +113,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
         }
       }, 900);
     },
-    [process.id, isFinalized]
+    [process.id, isFinalized, canEdit]
   );
 
   const pushHistory = useCallback(
@@ -427,7 +431,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
   }, [process.id, process.name, router, toast]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 select-none">
+    <div className="flex flex-col h-dvh w-full overflow-hidden bg-slate-100 select-none">
       <header className="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 z-30 shadow-subtle">
         <div className="flex items-center gap-3.5 min-w-0">
           <Link
@@ -446,6 +450,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             </h1>
             <button
               type="button"
+              disabled={!canEdit}
               onClick={() => setIsEditOpen(true)}
               title="Edit Process Details"
               className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-slate-100 transition-colors shrink-0"
@@ -477,7 +482,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             ) : (
               <>
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                <span>Saved just now</span>
+                <span>{canEdit ? "Saved" : "View only"}</span>
               </>
             )}
           </div>
@@ -485,6 +490,8 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
           <div className="h-5 w-px bg-slate-200 hidden md:block"></div>
 
           <div className="flex items-center gap-2.5">
+            <span className="text-xs text-slate-500">{isOwner ? "Owner" : canEdit ? "Shared: can edit" : "Shared: view only"}</span>
+            {isOwner && <button onClick={() => setSharing(true)} className="h-10 px-4 rounded-lg bg-blue-600 text-white text-xs font-semibold">Share</button>}
             <button
               onClick={() => setLeftPanelOpen(!leftPanelOpen)}
               title={leftPanelOpen ? "Collapse AI Chat" : "Expand AI Chat"}
@@ -515,6 +522,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
 
             {isFinalized ? (
               <button
+                disabled={!canEdit}
                 onClick={() => setIsEditFinalizedOpen(true)}
                 className="inline-flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
                 title="Unlock or create a new revision to edit this flowchart"
@@ -524,6 +532,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
               </button>
             ) : (
               <button
+                disabled={!canEdit}
                 onClick={() => setIsFinalizeOpen(true)}
                 className="inline-flex items-center gap-2 h-10 px-5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
               >
@@ -533,6 +542,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             )}
 
             <button
+              disabled={!isOwner}
               onClick={() => setIsDeleteOpen(true)}
               title="Delete Process"
               className="h-10 w-10 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 text-xs transition-colors"
@@ -555,7 +565,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
         {leftPanelOpen && (
           <ProcessChat
             processId={process.id}
@@ -563,11 +573,11 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             currentProcess={{ nodes, edges }}
             onProcessUpdate={handleAIProcessUpdate}
             onNewMessage={handleNewChatMessage}
-            isReadOnly={isFinalized}
+            isReadOnly={isFinalized || !canEdit}
           />
         )}
 
-        <div className="flex-1 relative h-full">
+        <div className="flex-1 min-w-0 relative h-full">
           <ProcessCanvas
             initialNodes={nodes}
             initialEdges={edges}
@@ -578,8 +588,8 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             onRedo={handleRedo}
             canUndo={historyIndex.current > 0}
             canRedo={historyIndex.current < historyStack.current.length - 1}
-            isReadOnly={isFinalized}
-            onUnlockToEdit={() => setIsEditFinalizedOpen(true)}
+            isReadOnly={isFinalized || !canEdit}
+            onUnlockToEdit={canEdit ? () => setIsEditFinalizedOpen(true) : undefined}
           />
         </div>
 
@@ -590,20 +600,21 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             onAddParticipant={handleAddParticipant}
             onRemoveParticipant={handleRemoveParticipant}
             onOpenVersions={() => setIsVersionsOpen(true)}
-            onOpenFinalize={() => setIsFinalizeOpen(true)}
-            onOpenDelete={() => setIsDeleteOpen(true)}
-            onOpenEdit={() => setIsEditOpen(true)}
-            onUnlockToEdit={() => setIsEditFinalizedOpen(true)}
-            isReadOnly={isFinalized}
+            onOpenFinalize={canEdit ? () => setIsFinalizeOpen(true) : undefined}
+            onOpenDelete={isOwner ? () => setIsDeleteOpen(true) : undefined}
+            onOpenEdit={canEdit ? () => setIsEditOpen(true) : undefined}
+            onUnlockToEdit={canEdit ? () => setIsEditFinalizedOpen(true) : undefined}
+            isReadOnly={isFinalized || !canEdit}
           />
         )}
       </div>
 
+      {sharing && <ShareProcessModal processId={process.id} onClose={() => setSharing(false)} />}
       <NodeEditor
         node={selectedNode}
         isOpen={isNodeEditorOpen}
-        isReadOnly={isFinalized}
-        onUnlockToEdit={() => setIsEditFinalizedOpen(true)}
+        isReadOnly={isFinalized || !canEdit}
+        onUnlockToEdit={canEdit ? () => setIsEditFinalizedOpen(true) : undefined}
         onClose={() => {
           setSelectedNode(null);
           setIsNodeEditorOpen(false);
@@ -613,6 +624,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
       />
 
       <VersionHistoryModal
+        readOnly={!canEdit}
         isOpen={isVersionsOpen}
         onClose={() => setIsVersionsOpen(false)}
         processId={process.id}

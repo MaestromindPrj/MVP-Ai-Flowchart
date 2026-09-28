@@ -12,6 +12,7 @@ require.extensions['.ts'] = (module, filename) => {
 const originalLoad = Module._load;
 let db;
 Module._load = function (id, parent, isMain) {
+  if (id === '@/lib/auth') return { getUser: async () => ({ id: 'test-user' }), authorizeProcess: async () => null };
   if (id === '@/lib/db/prisma') return { get prisma() { return db; } };
   if (id.startsWith('@/')) id = path.join(__dirname, '../src', id.slice(2));
   return originalLoad.call(this, id, parent, isMain);
@@ -85,7 +86,7 @@ function resetDb() {
   processRecord = { id: 'p', status: 'Draft', currentVersionId: 'v1', versions: [{ id: 'v1', processData: JSON.stringify(graph) }] };
   writes = []; providerCalls = 0;
   db = {
-    process: { findUnique: async () => processRecord },
+    process: { findUnique: async () => processRecord, findFirst: async () => ({ id: 'p' }) },
     processMessage: { findMany: async () => [], create: async ({ data }) => { writes.push(data); return data; } },
     processVersion: { updateMany: async ({ data }) => { writes.push(data); return { count: 1 }; } },
     $transaction: async fn => fn(db),
@@ -118,6 +119,38 @@ test('API detects concurrent diagram changes before saving messages', async () =
   resetDb(); db.processVersion.updateMany = async () => ({ count: 0 });
   factory.setAIProcessService({ sendMessage: async () => ({ responseMessage: 'Done', processUpdate: graph }) });
   assert.equal((await POST(request(body))).status, 409); assert.equal(writes.length, 0);
+});
+const { parseImageInput } = require('../src/lib/ai/image-input.ts');
+const image = { name: 'workflow.png', dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aP9sAAAAASUVORK5CYII=' };
+test('validates image types, signatures, encoding and size', () => {
+  assert.deepEqual(parseImageInput(image), image);
+  for (const dataUrl of ['https://example.com/image.png', 'data:image/svg+xml;base64,PHN2Zz4=', 'data:image/png;base64,aGVsbG8=', 'data:image/png;base64,' + 'A'.repeat(4_200_000)]) {
+    assert.throws(() => parseImageInput({ ...image, dataUrl }), AIServiceError);
+  }
+});
+test('sends actual image content to the vision model', async () => {
+  process.env.GROQ_VISION_MODEL = 'test-vision-model';
+  global.fetch = async (_url, options) => {
+    const sent = JSON.parse(options.body);
+    assert.equal(sent.model, 'test-vision-model');
+    assert.equal(sent.messages.at(-1).content[1].image_url.url, image.dataUrl);
+    return success({ responseMessage: 'Which branch is approved?' });
+  };
+  await service.sendMessage('p', 'Read this diagram', graph, [], image);
+  delete process.env.GROQ_VISION_MODEL;
+});
+test('API accepts image-only input and persists attachment name without image bytes', async () => {
+  resetDb();
+  factory.setAIProcessService({ sendMessage: async (_id, message, _graph, _history, attachment) => {
+    assert.deepEqual(attachment, image);
+    assert.match(message, /from this image/);
+    return { responseMessage: 'Created', processUpdate: graph };
+  } });
+  assert.equal((await POST(request({ ...body, message: '', image }))).status, 200);
+  assert.match(writes[1].message, /workflow.png/);
+  assert.ok(!JSON.stringify(writes).includes('base64'));
+  assert.equal((await POST(request({ ...body, message: '' }))).status, 400);
+  assert.equal((await POST(request({ ...body, image: { ...image, dataUrl: 'invalid' } }))).status, 400);
 });
 (async () => {
   let failed = 0;

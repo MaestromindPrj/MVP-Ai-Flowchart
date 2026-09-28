@@ -1,3 +1,4 @@
+import { authorizeProcess } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
@@ -9,6 +10,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     const process = await prisma.process.findUnique({
       where: { id },
       include: {
@@ -68,6 +71,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     const body = await request.json();
     const {
       name,
@@ -165,6 +170,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const access = await authorizeProcess(request, id, "owner");
+    if (access) return access;
 
     const existingProcess = await prisma.process.findUnique({
       where: { id },

@@ -32,6 +32,7 @@ interface VersionHistoryModalProps {
   processId: string;
   currentVersionNumber: number;
   currentProcessData: ProcessData;
+  readOnly?: boolean;
   onRestoreVersion: (version: ProcessVersionItem) => void;
   onCreateSnapshot: (summary: string) => Promise<void>;
 }
@@ -42,6 +43,7 @@ export function VersionHistoryModal({
   processId,
   currentVersionNumber,
   currentProcessData,
+  readOnly = false,
   onRestoreVersion,
   onCreateSnapshot,
 }: VersionHistoryModalProps) {
@@ -163,7 +165,7 @@ export function VersionHistoryModal({
                 />
                 <button
                   type="submit"
-                  disabled={!snapshotSummary.trim() || isCreatingSnapshot}
+                  disabled={readOnly || !snapshotSummary.trim() || isCreatingSnapshot}
                   className="w-full inline-flex items-center justify-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold disabled:opacity-50 shadow-sm transition-all"
                 >
                   {isCreatingSnapshot ? (
@@ -247,6 +249,7 @@ export function VersionHistoryModal({
                   {selectedVersion.versionNumber !== currentVersionNumber && (
                     <button
                       type="button"
+                      disabled={readOnly}
                       onClick={() => {
                         onRestoreVersion(selectedVersion);
                         onClose();

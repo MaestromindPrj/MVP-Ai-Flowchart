@@ -37,6 +37,12 @@ export interface AIProcessMessageRequest {
   processId: string;
   message: string;
   currentProcess: ProcessData;
+  image?: AIImageInput;
+}
+
+export interface AIImageInput {
+  name: string;
+  dataUrl: string;
 }
 
 export interface AIProcessResponse {
@@ -56,6 +62,7 @@ export interface AIProcessService {
     processId: string,
     message: string,
     currentProcess: ProcessData,
-    history?: AIConversationMessage[]
+    history?: AIConversationMessage[],
+    image?: AIImageInput
   ): Promise<AIProcessResponse>;
 }

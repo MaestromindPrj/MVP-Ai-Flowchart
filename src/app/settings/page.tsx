@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Settings,
   Building,
@@ -19,11 +19,12 @@ import { useToast } from "@/components/ui/Toast";
 export default function SettingsPage() {
   const toast = useToast();
 
-  const [orgName, setOrgName] = useState("Acme Global Enterprises");
-  const [userName, setUserName] = useState("Alex Morgan");
-  const [userEmail, setUserEmail] = useState("alex@jvprocess.com");
-  const [userRole, setUserRole] = useState("Senior Process Consultant");
+  const [orgName, setOrgName] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userRole, setUserRole] = useState("");
 
+  useEffect(() => { fetch("/api/auth/me").then(r => r.json()).then(({ user }) => { if (user) { setUserName(user.name); setUserEmail(user.email); setUserRole(user.role); setOrgName(user.organization?.name || ""); } }); }, []);
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     toast.success("Settings Saved", "Profile parameters updated successfully");
