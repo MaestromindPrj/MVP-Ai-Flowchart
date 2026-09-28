@@ -279,13 +279,14 @@ export function ProcessCanvas({
 
   const handleAutoLayout = useCallback(
     (direction: "TB" | "LR") => {
+      if (isReadOnly) return;
       setLayoutDir(direction);
       const { nodes: layoutedNodes, edges: layoutedEdges } =
         getLayoutedElements(initialNodes, initialEdges, direction);
       onNodesChangeParent?.(layoutedNodes);
       onEdgesChangeParent?.(layoutedEdges);
     },
-    [initialNodes, initialEdges, onNodesChangeParent, onEdgesChangeParent]
+    [initialNodes, initialEdges, isReadOnly, onNodesChangeParent, onEdgesChangeParent]
   );
 
   return (
@@ -308,6 +309,7 @@ export function ProcessCanvas({
         maxZoom={2}
         snapToGrid={true}
         snapGrid={[15, 15]}
+        deleteKeyCode={isReadOnly ? null : "Backspace"}
         nodesDraggable={!isReadOnly}
         nodesConnectable={!isReadOnly}
         elementsSelectable={!isReadOnly}
@@ -324,6 +326,7 @@ export function ProcessCanvas({
 
           <div className="flex items-center h-10 bg-white rounded-lg border border-slate-200 shadow-sm p-1">
             <button
+              disabled={isReadOnly}
               onClick={() => handleAutoLayout("TB")}
               title="Auto Layout (Top-Down)"
               className={`h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
@@ -336,6 +339,7 @@ export function ProcessCanvas({
               <ArrowDown className="w-3 h-3" />
             </button>
             <button
+              disabled={isReadOnly}
               onClick={() => handleAutoLayout("LR")}
               title="Auto Layout (Left-Right)"
               className={`h-8 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${

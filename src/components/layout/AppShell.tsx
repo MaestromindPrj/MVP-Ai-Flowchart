@@ -29,6 +29,7 @@ export function AppShell({
     async function loadUser() {
       try {
         const res = await fetch("/api/auth/me");
+        if (res.status === 401) { window.location.assign("/login"); return; }
         if (res.ok) {
           const data = await res.json();
           if (data.user) {
@@ -36,11 +37,7 @@ export function AppShell({
           }
         }
       } catch (err) {
-        setUser({
-          name: "Alex Morgan",
-          email: "alex@jvprocess.com",
-          role: "Senior Process Consultant",
-        });
+        window.location.assign("/login");
       }
     }
     loadUser();

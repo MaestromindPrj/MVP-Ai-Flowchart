@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronLeft,
 } from "lucide-react";
+import { ChatInputTools } from "./ChatInputTools";
 import { ProcessData } from "@/lib/ai/types";
 
 export interface ChatMessage {
@@ -38,6 +39,8 @@ export function ProcessChat({
   onNewMessage,
   isReadOnly = false,
 }: ProcessChatProps) {
+  const [inputBusy, setInputBusy] = useState(false);
+  const [draftError, setDraftError] = useState("");
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([
@@ -59,7 +62,9 @@ export function ProcessChat({
 
   const handleSendMessage = async (textToSend?: string) => {
     const message = textToSend || inputText;
-    if (!message.trim() || isLoading || isReadOnly) return;
+    if (!message.trim() || isLoading || isReadOnly || inputBusy) return;
+    if (message.length > 24000) { setDraftError("Keep the draft under 24,000 characters before sending."); return; }
+    setDraftError("");
 
     const userMessageId = `user-msg-${Date.now()}`;
     const userMessage: ChatMessage = {
@@ -69,8 +74,7 @@ export function ProcessChat({
       createdAt: new Date().toISOString(),
     };
 
-    onNewMessage(userMessage);
-    if (!textToSend) setInputText("");
+
     setIsLoading(true);
 
     try {
@@ -89,6 +93,8 @@ export function ProcessChat({
         throw new Error(data.error || "Failed to process message");
       }
 
+      onNewMessage(userMessage);
+      if (!textToSend) setInputText("");
       const aiMessage: ChatMessage = {
         id: `ai-msg-${Date.now()}`,
         senderType: "AI",
@@ -120,7 +126,7 @@ export function ProcessChat({
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
@@ -239,7 +245,7 @@ export function ProcessChat({
                 key={idx}
                 type="button"
                 onClick={() => handleSendMessage(prompt)}
-                disabled={isLoading}
+                disabled={isLoading || inputBusy}
                 className="text-[11px] px-2.5 py-1 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-200 rounded-full text-slate-700 hover:text-blue-700 transition-colors text-left truncate max-w-full"
               >
                 + {prompt}
@@ -250,6 +256,8 @@ export function ProcessChat({
       )}
 
       <div className="p-3.5 border-t border-slate-200 bg-white">
+        {!isReadOnly && <ChatInputTools processId={processId} disabled={isLoading || isReadOnly} onBusy={setInputBusy} onAppend={text => setInputText(previous => previous.trim() ? previous + "\n\n" + text : text)} />}
+        {draftError && <p role="alert" className="text-xs text-red-600 mb-2">{draftError}</p>}
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -257,23 +265,24 @@ export function ProcessChat({
           }}
           className="relative flex items-center"
         >
-          <input
-            type="text"
-            maxLength={4000}
+          <textarea
+            aria-label="Process description"
+            rows={4}
             disabled={isLoading || isReadOnly}
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
               isReadOnly
-                ? "Process is finalized (read-only)"
+                ? "This flowchart is read-only"
                 : "Describe the next step or condition..."
             }
-            className="w-full pl-3.5 pr-11 h-11 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900 disabled:opacity-50"
+            className="w-full pl-3.5 pr-11 py-3 min-h-24 max-h-64 resize-y text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-slate-900 disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={!inputText.trim() || isLoading || isReadOnly}
+            aria-label="Send process description"
+            disabled={!inputText.trim() || inputText.length > 24000 || isLoading || isReadOnly || inputBusy}
             className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-200 text-white disabled:text-slate-400 transition-colors shadow-sm"
           >
             {isLoading ? (
@@ -283,6 +292,7 @@ export function ProcessChat({
             )}
           </button>
         </form>
+        <p className="mt-1 text-[10px] text-slate-400">{inputText.length.toLocaleString()} / 24,000 characters. Review before sending.</p>
       </div>
     </div>
   );

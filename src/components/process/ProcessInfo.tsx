@@ -43,7 +43,7 @@ interface ProcessInfoProps {
   onAddParticipant: (participant: { name: string; role: string; email?: string }) => void;
   onRemoveParticipant: (participantId: string) => void;
   onOpenVersions: () => void;
-  onOpenFinalize: () => void;
+  onOpenFinalize?: () => void;
   onOpenDelete?: () => void;
   onOpenEdit?: () => void;
   onUnlockToEdit?: () => void;
@@ -305,6 +305,7 @@ export function ProcessInfo({
         {!isFinalized ? (
           <button
             type="button"
+            disabled={!onOpenFinalize}
             onClick={onOpenFinalize}
             className="w-full flex items-center justify-center gap-2 h-10 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-sm transition-colors"
           >

@@ -18,6 +18,10 @@ model Organization {
 
 model User {
   id             String        @id @default(cuid())
+  passwordHash   String?
+  shares         ProcessShare[]
+  sessions       Session[]
+  processes      Process[]
   email          String        @unique
   name           String
   role           String        @default("Consultant")
@@ -29,6 +33,8 @@ model User {
 
 model Process {
   id                   String               @id @default(cuid())
+  creatorId            String?
+  creator              User? @relation(fields: [creatorId], references: [id], onDelete: Restrict)
   organizationId       String
   organization         Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name                 String
@@ -43,7 +49,10 @@ model Process {
   updatedAt            DateTime             @updatedAt
   versions             ProcessVersion[]
   participants         ProcessParticipant[]
+  shares               ProcessShare[]
   messages             ProcessMessage[]
+
+  @@index([creatorId])
 }
 
 model ProcessVersion {
@@ -75,4 +84,22 @@ model ProcessMessage {
   message          String
   suggestedChanges String?
   createdAt        DateTime @default(now())
+}
+
+model Session {
+  tokenHash String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  @@index([userId])
+}
+
+model ProcessShare {
+  processId String
+  userId String
+  permission String
+  process Process @relation(fields: [processId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([processId, userId])
+  @@index([userId])
 }

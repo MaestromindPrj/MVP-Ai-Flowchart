@@ -1,3 +1,4 @@
+import { authorizeProcess } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
@@ -7,6 +8,8 @@ export async function POST(
 ) {
   try {
     const { id, versionId } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     const versionToRestore = await prisma.processVersion.findUnique({
       where: { id: versionId },
     });

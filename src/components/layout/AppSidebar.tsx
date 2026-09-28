@@ -137,20 +137,20 @@ export function AppSidebar({ user }: AppSidebarProps) {
               </div>
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-slate-800 truncate">
-                  {user?.name || "Alex Morgan"}
+                  {user?.name || "Account"}
                 </div>
                 <div className="text-[10px] text-slate-400 truncate">
-                  {user?.email || "alex@jvprocess.com"}
+                  {user?.email || ""}
                 </div>
               </div>
             </div>
-            <Link
-              href="/login"
+            <button
+              onClick={async () => { const res = await fetch("/api/auth/logout", { method: "POST" }); if (res.ok) window.location.assign("/login"); }}
               title="Sign Out"
               className="text-slate-400 hover:text-slate-600 p-1 rounded"
             >
               <LogOut className="w-4 h-4" />
-            </Link>
+            </button>
           </div>
         </div>
       </div>

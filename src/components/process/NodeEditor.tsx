@@ -80,7 +80,7 @@ export function NodeEditor({
         <div className="p-3 bg-amber-50/90 border-b border-amber-200/80 flex items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-1.5 text-amber-800 font-medium">
             <Lock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
-            <span>Flowchart is finalized & locked</span>
+            <span>Flowchart is read-only</span>
           </div>
           {onUnlockToEdit && (
             <button

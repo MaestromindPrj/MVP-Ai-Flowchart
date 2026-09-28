@@ -1,3 +1,4 @@
+import { requireUser, accessibleProcesses, processPermission } from "@/lib/auth";
 import React from "react";
 import { notFound } from "next/navigation";
 import { ProcessWorkspace } from "@/components/process/ProcessWorkspace";
@@ -12,9 +13,10 @@ interface ProcessPageProps {
 }
 
 export default async function ProcessPage({ params }: ProcessPageProps) {
+  const user = await requireUser();
   const { id } = await params;
   const process = await prisma.process.findUnique({
-    where: { id },
+    where: { id, ...accessibleProcesses(user.id) },
     include: {
       versions: {
         orderBy: { versionNumber: "desc" },
@@ -50,6 +52,7 @@ export default async function ProcessPage({ params }: ProcessPageProps) {
 
   const serializedProcess = {
     ...process,
+    permission: await processPermission(id, user.id),
     createdAt: process.createdAt.toISOString(),
     updatedAt: process.updatedAt.toISOString(),
     activeVersion: activeVersion

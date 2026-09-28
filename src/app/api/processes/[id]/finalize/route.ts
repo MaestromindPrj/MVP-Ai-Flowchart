@@ -1,3 +1,4 @@
+import { authorizeProcess } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
@@ -7,6 +8,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     const process = await prisma.process.findUnique({
       where: { id },
       include: {

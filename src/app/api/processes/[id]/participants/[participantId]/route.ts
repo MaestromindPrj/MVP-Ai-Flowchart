@@ -1,3 +1,4 @@
+import { authorizeProcess } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
@@ -6,9 +7,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; participantId: string }> }
 ) {
   try {
-    const { participantId } = await params;
+    const { id, participantId } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     await prisma.processParticipant.delete({
-      where: { id: participantId },
+      where: { id: participantId, processId: id },
     });
 
     return NextResponse.json({ success: true });

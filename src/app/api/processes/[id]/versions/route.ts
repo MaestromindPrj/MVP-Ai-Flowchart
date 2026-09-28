@@ -1,3 +1,4 @@
+import { authorizeProcess } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
@@ -9,6 +10,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     const versions = await prisma.processVersion.findMany({
       where: { processId: id },
       orderBy: { versionNumber: "desc" },
@@ -42,6 +45,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
+    const access = await authorizeProcess(request, id);
+    if (access) return access;
     const body = await request.json();
     const { processData, changeSummary, createdBy } = body;
 

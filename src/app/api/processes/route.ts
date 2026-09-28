@@ -1,3 +1,4 @@
+import { getUser, accessibleProcesses } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 
@@ -5,12 +6,14 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const status = searchParams.get("status");
     const department = searchParams.get("department");
 
-    const where: any = {};
+    const where: any = { AND: [accessibleProcesses(user.id)] };
     if (search) {
       where.OR = [
         { name: { contains: search } },
@@ -33,12 +36,13 @@ export async function GET(request: NextRequest) {
           orderBy: { versionNumber: "desc" },
           take: 1,
         },
+        shares: { where: { userId: user.id }, select: { permission: true } },
         participants: true,
       },
       orderBy: { updatedAt: "desc" },
     });
 
-    return NextResponse.json({ processes });
+    return NextResponse.json({ processes: processes.map(({ shares, ...p }) => ({ ...p, permission: p.creatorId === user.id ? "owner" : shares[0]?.permission })) });
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || "Failed to fetch processes" },
@@ -49,21 +53,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const body = await request.json();
-    const { name, description, department, ownerName, ownerEmail, templateId } = body;
+    const { name, description, department, templateId } = body;
+    const ownerName = user.name;
+    const ownerEmail = user.email;
 
     if (!name?.trim()) {
       return NextResponse.json(
         { error: "Process name is required" },
         { status: 400 }
       );
-    }
-
-    let org = await prisma.organization.findFirst();
-    if (!org) {
-      org = await prisma.organization.create({
-        data: { name: "Acme Global Enterprises" },
-      });
     }
 
     let initialNodes: any[] = [];
@@ -426,7 +427,8 @@ export async function POST(request: NextRequest) {
 
     const process = await prisma.process.create({
       data: {
-        organizationId: org.id,
+        organizationId: user.organizationId!,
+        creatorId: user.id,
         name: name.trim(),
         description: description?.trim() || null,
         department: department || "Operations",
