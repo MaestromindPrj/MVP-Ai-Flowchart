@@ -66,17 +66,18 @@ export function ProcessChat({
     container?.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const handleSendMessage = async (textToSend?: string) => {
+  const handleSendMessage = async (textToSend?: string, fromDocument = false): Promise<boolean> => {
     const message = textToSend || inputText.trim() || (image ? "Create or update the flowchart from this image." : "");
-    if (!message.trim() || isLoading || isReadOnly || inputBusy || imageBusy) return;
-    if (message.length > 24000) { setDraftError("Keep the draft under 24,000 characters before sending."); return; }
+    if (!message.trim() || isLoading || isReadOnly || (inputBusy && !fromDocument) || imageBusy) return false;
+    if (message.length > 24000) { setDraftError("Keep the draft under 24,000 characters before sending."); return false; }
     setDraftError("");
+    const attachedImage = fromDocument ? undefined : image;
 
     const userMessageId = `user-msg-${Date.now()}`;
     const userMessage: ChatMessage = {
       id: userMessageId,
       senderType: "USER",
-      message: message.trim() + (image ? `\n\n[Attached image: ${image.name}]` : ""),
+      message: message.trim() + (attachedImage ? `\n\n[Attached image: ${attachedImage.name}]` : ""),
       createdAt: new Date().toISOString(),
     };
 
@@ -91,7 +92,7 @@ export function ProcessChat({
           processId,
           message: message.trim(),
           currentProcess,
-          image,
+          image: attachedImage,
         }),
       });
 
@@ -101,7 +102,7 @@ export function ProcessChat({
       }
 
       onNewMessage(userMessage);
-      setImage(undefined);
+      if (!fromDocument) setImage(undefined);
       if (!textToSend) setInputText("");
       const aiMessage: ChatMessage = {
         id: `ai-msg-${Date.now()}`,
@@ -120,6 +121,7 @@ export function ProcessChat({
       if (data.suggestedPrompts && data.suggestedPrompts.length > 0) {
         setSuggestedPrompts(data.suggestedPrompts);
       }
+      return true;
     } catch (err: any) {
       const errorMessage: ChatMessage = {
         id: `err-msg-${Date.now()}`,
@@ -129,6 +131,7 @@ export function ProcessChat({
         createdAt: new Date().toISOString(),
       };
       onNewMessage(errorMessage);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -290,7 +293,7 @@ export function ProcessChat({
       </div>
 
       <div className="shrink-0 max-h-[60%] overflow-y-auto overscroll-contain p-3.5 border-t border-slate-200 bg-white">
-        {!isReadOnly && <ChatInputTools processId={processId} disabled={isLoading || isReadOnly || imageBusy} onBusy={setInputBusy} onAppend={text => setInputText(previous => previous.trim() ? previous + "\n\n" + text : text)} />}
+        {!isReadOnly && <ChatInputTools processId={processId} disabled={isLoading || isReadOnly || imageBusy} onBusy={setInputBusy} onImport={text => handleSendMessage(text, true)} onAppend={text => setInputText(previous => previous.trim() ? previous + "\n\n" + text : text)} />}
         {!isReadOnly && <ImageAttachment image={image} onChange={setImage} onBusy={setImageBusy} disabled={isLoading || inputBusy} />}
         {draftError && <p role="alert" className="text-xs text-red-600 mb-2">{draftError}</p>}
         <form

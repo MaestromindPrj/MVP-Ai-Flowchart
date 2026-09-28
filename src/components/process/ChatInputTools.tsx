@@ -9,7 +9,7 @@ type Recognition = {
   start(): void; stop(): void; abort(): void;
 };
 type SpeechWindow = Window & { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition };
-export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { processId: string; disabled: boolean; onAppend: (text: string) => void; onBusy: (busy: boolean) => void }) {
+export function ChatInputTools({ processId, disabled, onAppend, onBusy, onImport }: { processId: string; disabled: boolean; onAppend: (text: string) => void; onBusy: (busy: boolean) => void; onImport: (text: string) => Promise<boolean> }) {
   const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -20,6 +20,7 @@ export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { proc
   const upload = useRef<AbortController | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const append = useRef(onAppend); append.current = onAppend;
+  const submitImport = useRef(onImport); submitImport.current = onImport;
   const reportBusy = useRef(onBusy); reportBusy.current = onBusy;
   useEffect(() => {
     const win = window as SpeechWindow;
@@ -49,7 +50,7 @@ export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { proc
     try { speech.start(); setListening(true); reportBusy.current(true); } catch { recognition.current = null; setError("Unable to start the microphone. Try again."); }
   }
   async function importFile(file?: File) {
-    if (!file || disabled) return;
+    if (!file || disabled || uploading || listening) return;
     setError(""); setNotice("");
     if (file.size > 4 * 1024 * 1024) { setError("Maximum file size is 4 MB."); return; }
     setUploading(true); reportBusy.current(true);
@@ -60,8 +61,10 @@ export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { proc
         throw new Error(res.status === 413 ? "The hosting server rejected the file size. Try a smaller document." : res.status === 504 ? "The hosting server timed out while reading the document. Try fewer pages." : `Document upload failed (HTTP ${res.status}). Check deployment server logs.`);
       }
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Unable to read document");
-      append.current("Create or update the editable flowchart from this process document. Reconstruct any existing diagram, preserving its steps, arrow directions, labeled branches, loops, and owners. Ask about unreadable or ambiguous details instead of guessing:\n\n" + data.text);
-      setNotice("Imported " + data.name);
+      if (controller.signal.aborted) return;
+      upload.current = null;
+      const completed = await submitImport.current("Create or update the editable flowchart from this process document. Reconstruct any existing diagram, preserving its steps, arrow directions, labeled branches, loops, and owners. Ask about unreadable or ambiguous details instead of guessing:\n\n" + data.text);
+      if (completed) setNotice("Processed " + data.name);
     } catch (e: any) { if (e.name !== "AbortError") setError(e.message || "Document upload failed"); }
     finally { upload.current = null; setUploading(false); reportBusy.current(false); }
   }
