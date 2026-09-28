@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAIProcessService } from "@/lib/ai/process-service";
 import { AIServiceError, parseProcessData } from "@/lib/ai/validation";
 import { prisma } from "@/lib/db/prisma";
+import { parseImageInput } from "@/lib/ai/image-input";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,16 +20,20 @@ export async function POST(request: NextRequest) {
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const raw = await request.text();
-    if (raw.length > 160_000) throw new AIServiceError("This flowchart is too large for AI editing.", 413);
+    if (raw.length > 4_400_000) throw new AIServiceError("This request is too large. Use an image under 3 MB.", 413);
     let body;
     try { body = JSON.parse(raw); } catch { throw new AIServiceError("Invalid JSON request.", 400); }
-    if (!body || typeof body !== "object" || typeof body.processId !== "string" || !body.processId.trim() || body.processId.length > 160 || typeof body.message !== "string" || !body.message.trim() || body.message.length > 24000) {
+    if (!body || typeof body !== "object" || typeof body.processId !== "string" || !body.processId.trim() || body.processId.length > 160 || typeof body.message !== "string" || body.message.length > 24000) {
       throw new AIServiceError("Provide a processId and a message of 1 to 24,000 characters.", 400);
     }
     const { processId } = body;
     const access = await authorizeProcess(request, processId, "edit");
     if (access) return access;
-    const message = body.message.trim();
+    const image = parseImageInput(body.image);
+    if (!body.message.trim() && !image) throw new AIServiceError("Provide a message or an image.", 400);
+    if (image && globalThis.process.env.AI_PROVIDER === "mock") throw new AIServiceError("Image reading requires the Groq AI provider. Set AI_PROVIDER to groq.", 503);
+    const message = body.message.trim() || "Create or update the flowchart from this image.";
+    const savedMessage = image ? `${message}\n\n[Attached image: ${image.name}]` : message;
     let currentProcess;
     try { currentProcess = parseProcessData(body.currentProcess); }
     catch { throw new AIServiceError("Invalid flowchart. Use at most 60 nodes with valid connections.", 400); }
@@ -48,7 +53,7 @@ export async function POST(request: NextRequest) {
     pendingId = processId;
     const history = await prisma.processMessage.findMany({ where: { processId }, orderBy: { createdAt: "desc" }, take: 8 });
     const result = await getAIProcessService().sendMessage(processId, message, currentProcess,
-      history.reverse().map((entry) => ({ role: entry.senderType === "USER" ? "user" : "assistant", content: entry.message }))
+      history.reverse().map((entry) => ({ role: entry.senderType === "USER" ? "user" : "assistant", content: entry.message })), image
     );
 
     // Commit messages and the diagram together only after a valid response.
@@ -66,7 +71,7 @@ export async function POST(request: NextRequest) {
         });
         if (saved.count !== 1) throw new AIServiceError("The diagram changed while AI was working. Reload it and try again.", 409);
       }
-      await tx.processMessage.create({ data: { processId, senderType: "USER", message } });
+      await tx.processMessage.create({ data: { processId, senderType: "USER", message: savedMessage } });
       await tx.processMessage.create({ data: {
         processId, senderType: "AI", message: result.responseMessage,
         suggestedChanges: result.suggestedChanges ? JSON.stringify(result.suggestedChanges) : null,

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { authorizeProcess } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
+import { readPDFDocument } from "@/lib/ai/pdf-document";
+import { AIServiceError } from "@/lib/ai/validation";
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 300;
 const MAX_BYTES = 4 * 1024 * 1024;
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -27,15 +28,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       chunks.push(value);
     }
     const buffer = Buffer.concat(chunks); let text = "";
+    let pages: number | undefined;
     if (extension === "pdf") {
-      if (buffer.subarray(0,5).toString() !== "%PDF-") throw new Error("Invalid PDF");
-      const parser = new PDFParse({ data: new Uint8Array(buffer) });
-      try {
-        const info = await parser.getInfo();
-        if (info.total > 30) return NextResponse.json({ error: "Use a PDF with at most 30 pages" }, { status: 413 });
-        const result = await parser.getText();
-        text = result.pages.map(page => page.text).join("\n\n");
-      } finally { await parser.destroy(); }
+      ({ text, pages } = await readPDFDocument(buffer, request.signal));
     } else if (extension === "docx") {
       text = (await mammoth.extractRawText({ buffer })).value;
     } else {
@@ -43,8 +38,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (text.includes("\0")) throw new Error("Binary input");
     }
     text = text.trim();
-    if (!text) return NextResponse.json({ error: "No readable text found. For scanned PDFs, run OCR or paste the text instead." }, { status: 422 });
+    if (!text) return NextResponse.json({ error: "No readable content found. Upload a clearer document." }, { status: 422 });
     if (text.length > 20000) return NextResponse.json({ error: "Document exceeds 20,000 characters. Upload a shorter section." }, { status: 413 });
-    return NextResponse.json({ text, name: name.slice(0,200) }, { headers: { "Cache-Control": "no-store" } });
-  } catch { return NextResponse.json({ error: "Unable to read this file. Use an unencrypted PDF, DOCX, or UTF-8 text document." }, { status: 422 }); }
+    return NextResponse.json({ text, pages, visual: extension === "pdf", name: name.slice(0,200) }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    if (error instanceof AIServiceError) return NextResponse.json({ error: error.message }, { status: error.status });
+    return NextResponse.json({ error: "Unable to read this file. Password-protected or damaged PDFs must be unlocked or re-exported first. Otherwise use DOCX or UTF-8 text." }, { status: 422 });
+  }
 }

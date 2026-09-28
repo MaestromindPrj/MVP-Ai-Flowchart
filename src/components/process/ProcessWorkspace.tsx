@@ -431,7 +431,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
   }, [process.id, process.name, router, toast]);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 select-none">
+    <div className="flex flex-col h-dvh w-full overflow-hidden bg-slate-100 select-none">
       <header className="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 z-30 shadow-subtle">
         <div className="flex items-center gap-3.5 min-w-0">
           <Link
@@ -565,7 +565,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden relative">
+      <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
         {leftPanelOpen && (
           <ProcessChat
             processId={process.id}
@@ -577,7 +577,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
           />
         )}
 
-        <div className="flex-1 relative h-full">
+        <div className="flex-1 min-w-0 relative h-full">
           <ProcessCanvas
             initialNodes={nodes}
             initialEdges={edges}

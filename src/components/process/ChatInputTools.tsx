@@ -57,8 +57,8 @@ export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { proc
     try {
       const res = await fetch("/api/processes/" + processId + "/document?name=" + encodeURIComponent(file.name), { method: "POST", body: file, signal: controller.signal });
       const data = await res.json(); if (!res.ok) throw new Error(data.error || "Unable to read document");
-      append.current("Create or update the flowchart from this process document:\n\n" + data.text);
-      setNotice("Imported " + data.name + ". Review the draft below, then send.");
+      append.current("Create or update the editable flowchart from this process document. Reconstruct any existing diagram, preserving its steps, arrow directions, labeled branches, loops, and owners. Ask about unreadable or ambiguous details instead of guessing:\n\n" + data.text);
+      setNotice("Imported " + data.name);
     } catch (e: any) { if (e.name !== "AbortError") setError(e.message || "Document upload failed"); }
     finally { upload.current = null; setUploading(false); reportBusy.current(false); }
   }
@@ -68,10 +68,7 @@ export function ChatInputTools({ processId, disabled, onAppend, onBusy }: { proc
       <button type="button" onClick={() => fileInput.current?.click()} disabled={disabled || uploading || listening} className="flex items-center gap-1 rounded border px-2 py-1 text-xs disabled:opacity-40">{uploading ? <Loader2 size={14} className="animate-spin"/> : <Paperclip size={14}/>} {uploading ? "Reading..." : "Import document"}</button>
       <input ref={fileInput} type="file" accept=".pdf,.docx,.txt,.md,.csv" className="hidden" aria-label="Import process document" onChange={e => { importFile(e.target.files?.[0]); e.target.value = ""; }}/>
     </div>
-    <p className="text-[10px] text-slate-500">PDF, DOCX, TXT, MD, CSV. Up to 4 MB and 20,000 characters.</p>
     {listening && <p role="status" className="text-xs text-red-600">Listening... {interim}</p>}
-    {!supported && <p className="text-[10px] text-slate-500">Voice input is unavailable in this browser. You can type or import a document.</p>}
-    {supported && <p className="text-[10px] text-slate-500">Dictation uses your browser's speech service.</p>}
     {notice && <p role="status" className="text-xs text-blue-600">{notice}</p>}
     {error && <p role="alert" className="text-xs text-red-600">{error}</p>}
   </div>;
