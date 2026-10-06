@@ -3,15 +3,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAIProcessService } from "@/lib/ai/process-service";
 import { AIServiceError, parseProcessData } from "@/lib/ai/validation";
 import { prisma } from "@/lib/db/prisma";
-import { parseImageInput } from "@/lib/ai/image-input";
+import { parseImageInputs } from "@/lib/ai/image-input";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 // Best-effort per-instance guard; use a shared limiter for multiple replicas.
-let windowStart = 0;
-let requests = 0;
+const requestWindows = new Map<string, { start: number; count: number }>();
 const pending = new Set<string>();
 
 export async function POST(request: NextRequest) {
@@ -20,7 +19,7 @@ export async function POST(request: NextRequest) {
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     const raw = await request.text();
-    if (raw.length > 4_400_000) throw new AIServiceError("This request is too large. Use an image under 3 MB.", 413);
+    if (raw.length > 9_500_000) throw new AIServiceError("This request is too large. Use up to two images under 3 MB each.", 413);
     let body;
     try { body = JSON.parse(raw); } catch { throw new AIServiceError("Invalid JSON request.", 400); }
     if (!body || typeof body !== "object" || typeof body.processId !== "string" || !body.processId.trim() || body.processId.length > 160 || typeof body.message !== "string" || body.message.length > 24000) {
@@ -29,11 +28,11 @@ export async function POST(request: NextRequest) {
     const { processId } = body;
     const access = await authorizeProcess(request, processId, "edit");
     if (access) return access;
-    const image = parseImageInput(body.image);
-    if (!body.message.trim() && !image) throw new AIServiceError("Provide a message or an image.", 400);
-    if (image && globalThis.process.env.AI_PROVIDER === "mock") throw new AIServiceError("Image reading requires the Groq AI provider. Set AI_PROVIDER to groq.", 503);
-    const message = body.message.trim() || "Create or update the flowchart from this image.";
-    const savedMessage = image ? `${message}\n\n[Attached image: ${image.name}]` : message;
+    const images = parseImageInputs(body.images, body.image);
+    if (!body.message.trim() && !images.length) throw new AIServiceError("Provide a message or an image.", 400);
+    if (images.length && globalThis.process.env.AI_PROVIDER === "mock") throw new AIServiceError("Image reading requires the Groq AI provider. Set AI_PROVIDER to groq.", 503);
+    const message = body.message.trim() || "Create or update the flowchart from the attached images.";
+    const savedMessage = message + images.map(image => `\n\n[Attached image: ${image.name}]`).join("");
     let currentProcess;
     try { currentProcess = parseProcessData(body.currentProcess); }
     catch { throw new AIServiceError("Invalid flowchart. Use at most 60 nodes with valid connections.", 400); }
@@ -46,14 +45,17 @@ export async function POST(request: NextRequest) {
     const version = process.versions.find((item) => item.id === process.currentVersionId) || process.versions[0];
     if (!version) throw new AIServiceError("Create a process version before using AI.", 409);
     if (pending.has(processId)) throw new AIServiceError("An AI request for this process is already running. Please wait.", 429);
-    if (Date.now() - windowStart >= 60_000) { windowStart = Date.now(); requests = 0; }
-    if (requests >= 20) throw new AIServiceError("AI is busy. Please wait a minute before trying again.", 429);
-    requests++;
+    const now = Date.now();
+    requestWindows.forEach((window, id) => { if (now - window.start >= 60_000) requestWindows.delete(id); });
+    const window = requestWindows.get(user.id) || { start: now, count: 0 };
+    if (window.count >= 20) throw new AIServiceError("You have sent too many AI requests. Please wait a minute before trying again.", 429);
+    window.count++;
+    requestWindows.set(user.id, window);
     pending.add(processId);
     pendingId = processId;
     const history = await prisma.processMessage.findMany({ where: { processId }, orderBy: { createdAt: "desc" }, take: 8 });
     const result = await getAIProcessService().sendMessage(processId, message, currentProcess,
-      history.reverse().map((entry) => ({ role: entry.senderType === "USER" ? "user" : "assistant", content: entry.message })), image
+      history.reverse().map((entry) => ({ role: entry.senderType === "USER" ? "user" : "assistant", content: entry.message })), images
     );
 
     // Commit messages and the diagram together only after a valid response.
@@ -82,7 +84,7 @@ export async function POST(request: NextRequest) {
     const known = error instanceof AIServiceError;
     return NextResponse.json(
       { error: known ? error.message : "Unable to save the AI response. Please try again." },
-      { status: known ? error.status : 500 }
+      { status: known ? error.status : 500, headers: known && error.retryAfter ? { "Retry-After": String(error.retryAfter) } : undefined }
     );
   } finally {
     if (pendingId) pending.delete(pendingId);

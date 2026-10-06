@@ -21,3 +21,14 @@ export function parseImageInput(value: unknown): AIImageInput | undefined {
   if (!valid) throw new AIServiceError("The file does not match its image format.", 400);
   return { name: image.name.trim(), dataUrl: image.dataUrl };
 }
+
+export function parseImageInputs(value: unknown, legacyImage?: unknown): AIImageInput[] {
+  if (value !== undefined && legacyImage !== undefined) throw new AIServiceError("Use images or image, not both.", 400);
+  if (value === undefined) return legacyImage === undefined ? [] : [parseImageInput(legacyImage)!];
+  if (!Array.isArray(value) || value.length > 2) throw new AIServiceError("Attach at most two images.", 400);
+  return value.map(item => {
+    const image = parseImageInput(item);
+    if (!image) throw new AIServiceError("Invalid image attachment.", 400);
+    return image;
+  });
+}

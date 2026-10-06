@@ -38,6 +38,7 @@ export interface AIProcessMessageRequest {
   message: string;
   currentProcess: ProcessData;
   image?: AIImageInput;
+  images?: AIImageInput[];
 }
 
 export interface AIImageInput {
@@ -63,6 +64,6 @@ export interface AIProcessService {
     message: string,
     currentProcess: ProcessData,
     history?: AIConversationMessage[],
-    image?: AIImageInput
+    images?: AIImageInput[]
   ): Promise<AIProcessResponse>;
 }

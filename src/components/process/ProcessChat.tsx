@@ -40,7 +40,8 @@ export function ProcessChat({
   isReadOnly = false,
 }: ProcessChatProps) {
   const [inputBusy, setInputBusy] = useState(false);
-  const [image, setImage] = useState<AIImageInput>();
+  const [images, setImages] = useState<AIImageInput[]>([]);
+  const sending = useRef(false);
   const [imageBusy, setImageBusy] = useState(false);
   const [draftError, setDraftError] = useState("");
   const [inputText, setInputText] = useState("");
@@ -67,21 +68,22 @@ export function ProcessChat({
   }, [messages, isLoading]);
 
   const handleSendMessage = async (textToSend?: string, fromDocument = false): Promise<boolean> => {
-    const message = textToSend || inputText.trim() || (image ? "Create or update the flowchart from this image." : "");
-    if (!message.trim() || isLoading || isReadOnly || (inputBusy && !fromDocument) || imageBusy) return false;
+    const message = textToSend || inputText.trim() || (images.length ? "Create or update the flowchart from the attached images." : "");
+    if (!message.trim() || sending.current || isLoading || isReadOnly || (inputBusy && !fromDocument) || imageBusy) return false;
     if (message.length > 24000) { setDraftError("Keep the draft under 24,000 characters before sending."); return false; }
     setDraftError("");
-    const attachedImage = fromDocument ? undefined : image;
+    const attachedImages = fromDocument ? [] : images;
 
     const userMessageId = `user-msg-${Date.now()}`;
     const userMessage: ChatMessage = {
       id: userMessageId,
       senderType: "USER",
-      message: message.trim() + (attachedImage ? `\n\n[Attached image: ${attachedImage.name}]` : ""),
+      message: message.trim() + attachedImages.map(image => `\n\n[Attached image: ${image.name}]`).join(""),
       createdAt: new Date().toISOString(),
     };
 
 
+    sending.current = true;
     setIsLoading(true);
 
     try {
@@ -92,7 +94,7 @@ export function ProcessChat({
           processId,
           message: message.trim(),
           currentProcess,
-          image: attachedImage,
+          images: attachedImages,
         }),
       });
 
@@ -102,7 +104,7 @@ export function ProcessChat({
       }
 
       onNewMessage(userMessage);
-      if (!fromDocument) setImage(undefined);
+      if (!fromDocument) setImages([]);
       if (!textToSend) setInputText("");
       const aiMessage: ChatMessage = {
         id: `ai-msg-${Date.now()}`,
@@ -133,6 +135,7 @@ export function ProcessChat({
       onNewMessage(errorMessage);
       return false;
     } finally {
+      sending.current = false;
       setIsLoading(false);
     }
   };
@@ -294,7 +297,7 @@ export function ProcessChat({
 
       <div className="shrink-0 max-h-[60%] overflow-y-auto overscroll-contain p-3.5 border-t border-slate-200 bg-white">
         {!isReadOnly && <ChatInputTools processId={processId} disabled={isLoading || isReadOnly || imageBusy} onBusy={setInputBusy} onImport={text => handleSendMessage(text, true)} onAppend={text => setInputText(previous => previous.trim() ? previous + "\n\n" + text : text)} />}
-        {!isReadOnly && <ImageAttachment image={image} onChange={setImage} onBusy={setImageBusy} disabled={isLoading || inputBusy} />}
+        {!isReadOnly && <ImageAttachment images={images} onChange={setImages} onBusy={setImageBusy} disabled={isLoading || inputBusy} />}
         {draftError && <p role="alert" className="text-xs text-red-600 mb-2">{draftError}</p>}
         <form
           onSubmit={(e) => {
@@ -320,7 +323,7 @@ export function ProcessChat({
           <button
             type="submit"
             aria-label="Send process description"
-            disabled={(!inputText.trim() && !image) || inputText.length > 24000 || isLoading || isReadOnly || inputBusy || imageBusy}
+            disabled={(!inputText.trim() && !images.length) || inputText.length > 24000 || isLoading || isReadOnly || inputBusy || imageBusy}
             className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-md bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-slate-200 text-white disabled:text-slate-400 transition-colors shadow-sm"
           >
             {isLoading ? (

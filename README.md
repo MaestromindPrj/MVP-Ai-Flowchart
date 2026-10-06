@@ -6,6 +6,8 @@ A modern B2B SaaS web application for business consultants and enterprise teams 
 
 ## 1. Features & Capabilities
 
+- **Image Inputs**: Attach up to two PNG, JPEG, or WebP images together (3 MB each), preview or remove each attachment, and send both to the AI in one request. Failed requests keep your draft and attachments.
+- **AI Reliability**: Per-user request limits, one bounded retry for short provider throttles or temporary server errors, and smaller diagram context. Provider quotas still apply; long waits show the retry time when available.
 - **AI Conversation Assistant**: Conversational process elicitation with structured visual flowchart synthesis and proactive step suggestions.
 - **Interactive Process Canvas**: Powered by React Flow (`@xyflow/react`) supporting custom BPMN-style node types:
   - `Start Node`: Pill-shaped process intake / trigger.

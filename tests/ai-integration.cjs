@@ -11,8 +11,9 @@ require.extensions['.ts'] = (module, filename) => {
 };
 const originalLoad = Module._load;
 let db;
+let userId = "test-user";
 Module._load = function (id, parent, isMain) {
-  if (id === '@/lib/auth') return { getUser: async () => ({ id: 'test-user' }), authorizeProcess: async () => null };
+  if (id === '@/lib/auth') return { getUser: async () => ({ id: userId }), authorizeProcess: async () => null };
   if (id === '@/lib/db/prisma') return { get prisma() { return db; } };
   if (id.startsWith('@/')) id = path.join(__dirname, '../src', id.slice(2));
   return originalLoad.call(this, id, parent, isMain);
@@ -54,7 +55,7 @@ test('sends server credentials, current graph, and bounded conversation; preserv
     const body = JSON.parse(options.body);
     assert.equal(body.response_format.type, 'json_object');
     assert.equal(body.messages.length, 10);
-    assert.deepEqual(JSON.parse(body.messages.at(-1).content).currentProcess, graph);
+    assert.deepEqual(JSON.parse(body.messages.at(-1).content).currentProcess, { ...graph, nodes: graph.nodes.map(({ position, ...node }) => node) });
     const changed = structuredClone(graph); changed.nodes[0].label = 'Receive order';
     changed.nodes.forEach(n => delete n.position);
     return success({ responseMessage: 'Updated', processUpdate: changed });
@@ -136,14 +137,14 @@ test('sends actual image content to the vision model', async () => {
     assert.equal(sent.messages.at(-1).content[1].image_url.url, image.dataUrl);
     return success({ responseMessage: 'Which branch is approved?' });
   };
-  await service.sendMessage('p', 'Read this diagram', graph, [], image);
+  await service.sendMessage('p', 'Read this diagram', graph, [], [image]);
   delete process.env.GROQ_VISION_MODEL;
 });
 test('API accepts image-only input and persists attachment name without image bytes', async () => {
   resetDb();
   factory.setAIProcessService({ sendMessage: async (_id, message, _graph, _history, attachment) => {
-    assert.deepEqual(attachment, image);
-    assert.match(message, /from this image/);
+    assert.deepEqual(attachment, [image]);
+    assert.match(message, /from the attached images/);
     return { responseMessage: 'Created', processUpdate: graph };
   } });
   assert.equal((await POST(request({ ...body, message: '', image }))).status, 200);
@@ -151,6 +152,60 @@ test('API accepts image-only input and persists attachment name without image by
   assert.ok(!JSON.stringify(writes).includes('base64'));
   assert.equal((await POST(request({ ...body, message: '' }))).status, 400);
   assert.equal((await POST(request({ ...body, image: { ...image, dataUrl: 'invalid' } }))).status, 400);
+});
+
+test('two images reach the vision model in order', async () => {
+  const second = { ...image, name: 'second.png' };
+  global.fetch = async (_url, options) => {
+    const parts = JSON.parse(options.body).messages.at(-1).content;
+    assert.equal(parts.length, 3);
+    assert.deepEqual(parts.slice(1).map(part => part.image_url.url), [image.dataUrl, second.dataUrl]);
+    return success({ responseMessage: 'Read both' });
+  };
+  await service.sendMessage('p', 'Combine', graph, [], [image, second]);
+});
+test('API accepts two images and rejects excess, malformed, and mixed attachments', async () => {
+  resetDb(); const second = { ...image, name: 'second.png' };
+  factory.setAIProcessService({ sendMessage: async (_id, _message, _graph, _history, images) => {
+    assert.deepEqual(images, [image, second]);
+    return { responseMessage: 'Read both' };
+  } });
+  assert.equal((await POST(request({ ...body, message: '', images: [image, second] }))).status, 200);
+  assert.match(writes[0].message, /workflow.png/);
+  assert.match(writes[0].message, /second.png/);
+  assert.ok(!JSON.stringify(writes).includes('base64'));
+  for (const extra of [{ images: [image, image, image] }, { images: [null] }, { images: {} }, { images: [image], image }]) {
+    assert.equal((await POST(request({ ...body, ...extra }))).status, 400);
+  }
+});
+test('retries a temporary throttle and server failure once', async () => {
+  for (const status of [429, 503]) {
+    let calls = 0;
+    global.fetch = async () => ++calls === 1 ? new Response('', { status, headers: { 'retry-after': '0' } }) : success({ responseMessage: 'Recovered' });
+    assert.equal((await service.sendMessage('p', 'Edit', graph)).responseMessage, 'Recovered');
+    assert.equal(calls, 2);
+  }
+});
+test('long quota waits are returned without retrying or exposing provider text', async () => {
+  let calls = 0;
+  global.fetch = async () => { calls++; return new Response('secret', { status: 429, headers: { 'retry-after': '120' } }); };
+  await assert.rejects(service.sendMessage('p', 'Edit', graph), error => error.status === 429 && error.retryAfter === 120 && !error.message.includes('secret'));
+  assert.equal(calls, 1);
+});
+test('request limits are isolated per user and expire', async () => {
+  resetDb();
+  factory.setAIProcessService({ sendMessage: async () => ({ responseMessage: 'Done' }) });
+  const realNow = Date.now;
+  try {
+    userId = 'busy-user';
+    for (let index = 0; index < 20; index++) assert.equal((await POST(request(body))).status, 200);
+    assert.equal((await POST(request(body))).status, 429);
+    userId = 'other-user';
+    assert.equal((await POST(request(body))).status, 200);
+    userId = 'busy-user';
+    Date.now = () => realNow() + 61000;
+    assert.equal((await POST(request(body))).status, 200);
+  } finally { Date.now = realNow; userId = 'test-user'; }
 });
 (async () => {
   let failed = 0;
