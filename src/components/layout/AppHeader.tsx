@@ -18,10 +18,10 @@ export function AppHeader({
   showCreateButton = true,
 }: AppHeaderProps) {
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 sticky top-0 z-30 shadow-subtle">
+    <header className="min-h-16 py-2 gap-2 flex-wrap bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between shrink-0 sticky top-0 z-30 shadow-subtle">
       <div className="flex items-center gap-2 text-sm">
         {breadcrumbs && breadcrumbs.length > 0 ? (
-          <div className="flex items-center gap-2 text-slate-500 font-medium">
+          <div className="flex flex-wrap items-center gap-2 text-slate-500 font-medium">
             {breadcrumbs.map((crumb, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && <ChevronRight className="w-4 h-4 text-slate-400" />}
@@ -48,7 +48,7 @@ export function AppHeader({
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="relative w-72 hidden sm:block">
+        <div className="relative w-44 xl:w-72 hidden md:block">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
@@ -72,10 +72,11 @@ export function AppHeader({
             className="inline-flex items-center gap-2 h-10 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span>New Process</span>
+            <span className="hidden sm:inline">New Process</span><span className="sm:hidden">New</span>
           </Link>
         )}
       </div>
+      {onSearch && <div className="w-full md:hidden"><input aria-label={searchPlaceholder} placeholder={searchPlaceholder} onChange={(e) => onSearch(e.target.value)} className="w-full h-11 px-3 bg-slate-50 border border-slate-200 rounded-lg" /></div>}
     </header>
   );
 }

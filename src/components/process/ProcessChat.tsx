@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -11,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { ChatInputTools } from "./ChatInputTools";
+import { AIUsage } from "./AIUsage";
 import { AIImageInput, ProcessData } from "@/lib/ai/types";
 import { ImageAttachment } from "./ImageAttachment";
 
@@ -177,7 +178,7 @@ export function ProcessChat({
           }
         }}
       />
-      <div className="shrink-0 p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/60">
+      <div className="shrink-0 p-4 border-b border-slate-200 flex items-center justify-between gap-2 bg-slate-50/60">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-md bg-blue-600 text-white flex items-center justify-center shadow-sm">
             <Sparkles className="w-4 h-4" />
@@ -192,6 +193,7 @@ export function ProcessChat({
             </div>
           </div>
         </div>
+        <AIUsage />
       </div>
 
       <div ref={messagesRef} className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3.5 select-text [overflow-wrap:anywhere]">

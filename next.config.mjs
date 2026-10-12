@@ -1,4 +1,5 @@
 const nextConfig = {
+  allowedDevOrigins: ["172.20.10.3"],
   reactStrictMode: false,
   serverExternalPackages: ["pdf-parse", "pdfjs-dist", "@napi-rs/canvas", "mammoth"],
   // PDF.js loads workers, fonts and native canvas bindings at runtime.

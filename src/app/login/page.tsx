@@ -19,7 +19,7 @@ export default function LoginPage() {
     finally { setBusy(false); }
   }
   const input = "w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
-  return <main className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+  return <main className="min-h-dvh py-6 bg-slate-50 flex items-center justify-center px-4">
     <div className="w-full max-w-md">
       <div className="text-center mb-8"><GitFork className="mx-auto mb-3 h-10 w-10 text-blue-600" /><h1 className="text-2xl font-bold text-slate-900">JV Process</h1><p className="mt-2 text-sm text-slate-500">Your processes. Your private workspace.</p></div>
       <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-sm">

@@ -60,7 +60,7 @@ export function NodeEditor({
   ];
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-200">
+    <div className="fixed inset-y-0 right-0 w-full sm:w-96 bg-white shadow-2xl border-l border-slate-200 z-50 flex flex-col animate-in slide-in-from-right duration-200">
       <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
         <div>
           <h3 className="text-sm font-bold text-slate-900">

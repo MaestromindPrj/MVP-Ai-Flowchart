@@ -1,6 +1,7 @@
 import { PDFParse } from "pdf-parse";
 import { getData } from "pdf-parse/worker";
 import { AIServiceError } from "./validation";
+import { recordGroqUsage, recordGroqTokens } from "./usage";
 
 // Use the packaged worker rather than a relative dynamic import, which can
 // resolve against a generated Next.js chunk in a deployed function.
@@ -38,9 +39,11 @@ async function readPages(pages: { pageNumber: number; dataUrl: string; text: str
     if (signal.aborted) throw new AIServiceError("PDF reading was cancelled or timed out. Try a shorter section.", 408);
     throw new AIServiceError("The PDF vision service could not be reached or timed out. Please retry.", 504);
   }
+  recordGroqUsage(process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b", response.headers);
   if (response.status === 429) throw new AIServiceError("AI quota reached while reading the PDF. Wait before trying again or upload fewer pages.", 429);
   if (!response.ok) throw new AIServiceError("AI could not read the PDF pages. Check GROQ_VISION_MODEL and model access, or try a smaller PDF.", 502);
   const result = await response.json();
+  recordGroqTokens(process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b", result.usage);
   const choice = result.choices?.[0];
   if (choice?.finish_reason !== "stop" || typeof choice.message?.content !== "string" || !choice.message.content.trim()) {
     throw new AIServiceError("AI could not finish reading the PDF. Upload a shorter section so no diagram details are lost.", 422);

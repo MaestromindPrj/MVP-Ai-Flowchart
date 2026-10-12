@@ -43,7 +43,7 @@ export default function SettingsPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-slate-200 shadow-card p-6 space-y-5">
-          <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-2.5 pb-4 border-b border-slate-100">
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
               <Cpu className="w-4 h-4" />
             </div>
@@ -58,8 +58,8 @@ export default function SettingsPage() {
           </div>
 
           <div className="p-4 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
                 <span className="text-xs font-bold text-slate-800">
                   Active Service Provider:
@@ -86,7 +86,7 @@ export default function SettingsPage() {
         </div>
 
         <form onSubmit={handleSave} className="bg-white rounded-xl border border-slate-200 shadow-card p-6 space-y-6">
-          <div className="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+          <div className="flex flex-wrap items-center gap-2.5 pb-4 border-b border-slate-100">
             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">
               <Building className="w-4 h-4" />
             </div>

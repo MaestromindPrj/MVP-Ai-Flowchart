@@ -149,7 +149,7 @@ export function VersionHistoryModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-12">
+        <div className="flex-1 min-h-0 overflow-y-auto md:overflow-hidden grid grid-cols-1 md:grid-cols-12">
           <div className="md:col-span-5 border-r border-slate-200 flex flex-col bg-slate-50/40 overflow-y-auto p-4 space-y-4">
             <div className="p-3 bg-white rounded-lg border border-slate-200 shadow-subtle">
               <div className="text-xs font-bold text-slate-800 mb-2">

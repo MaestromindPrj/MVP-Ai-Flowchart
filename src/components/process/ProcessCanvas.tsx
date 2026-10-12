@@ -321,7 +321,7 @@ export function ProcessCanvas({
           color="#cbd5e1"
         />
 
-        <Panel position="top-left" className="m-4 flex items-center gap-2.5">
+        <Panel position="top-left" className="canvas-toolbar m-4 flex flex-wrap items-center gap-2.5 max-w-[calc(100%-16px)]">
           {!isReadOnly && <AddNodeMenu onAddNode={handleAddNode} />}
 
           <div className="flex items-center h-10 bg-white rounded-lg border border-slate-200 shadow-sm p-1">

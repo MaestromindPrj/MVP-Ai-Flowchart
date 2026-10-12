@@ -207,6 +207,43 @@ test('request limits are isolated per user and expire', async () => {
     assert.equal((await POST(request(body))).status, 200);
   } finally { Date.now = realNow; userId = 'test-user'; }
 });
+test('daily token percentage uses actual totals, isolates models and rolls over at UTC midnight', () => {
+  const { recordGroqTokens, getDailyTokenUsage } = require('../src/lib/ai/usage.ts');
+  process.env.GROQ_MODEL = 'daily-test-text';
+  process.env.GROQ_VISION_MODEL = 'daily-test-vision';
+  process.env.GROQ_DAILY_TOKEN_LIMIT = '200000';
+  process.env.GROQ_VISION_DAILY_TOKEN_LIMIT = '100000';
+  const now = Date.UTC(2026, 9, 9, 12);
+  assert.equal(getDailyTokenUsage(now)[0].percentUsed, null);
+  recordGroqTokens('daily-test-text', { total_tokens: 40000 }, now);
+  recordGroqTokens('daily-test-text', { total_tokens: 10000 }, now);
+  recordGroqTokens('daily-test-vision', { total_tokens: 10000 }, now);
+  recordGroqTokens('daily-test-text', { total_tokens: -1 }, now);
+  recordGroqTokens('daily-test-text', {}, now);
+  assert.equal(getDailyTokenUsage(now)[0].percentUsed, 25);
+  assert.equal(getDailyTokenUsage(now)[1].percentUsed, 10);
+  assert.equal(getDailyTokenUsage(now + 86400000)[0].percentUsed, null);
+  recordGroqTokens('daily-test-text', { total_tokens: 2000 }, now + 86400000);
+  assert.equal(getDailyTokenUsage(now + 86400000)[0].percentUsed, 1);
+  process.env.GROQ_DAILY_TOKEN_LIMIT = '0';
+  assert.equal(getDailyTokenUsage(now + 86400000)[0].percentUsed, null);
+});
+test('overall percentage sums tokens and limits without averaging model percentages', () => {
+  const { recordGroqTokens, getOverallDailyTokenUsage } = require('../src/lib/ai/usage.ts');
+  process.env.GROQ_MODEL = 'overall-text';
+  process.env.GROQ_VISION_MODEL = 'overall-vision';
+  process.env.GROQ_DAILY_TOKEN_LIMIT = '200000';
+  process.env.GROQ_VISION_DAILY_TOKEN_LIMIT = '200000';
+  const now = Date.UTC(2026, 9, 9, 12);
+  assert.equal(getOverallDailyTokenUsage(now).percentUsed, null);
+  recordGroqTokens('overall-text', { total_tokens: 15000 }, now);
+  recordGroqTokens('overall-vision', { total_tokens: 5000 }, now);
+  assert.deepEqual(getOverallDailyTokenUsage(now), { tokensUsed: 20000, dailyLimit: 400000, percentUsed: 5 });
+  process.env.GROQ_VISION_DAILY_TOKEN_LIMIT = '100000';
+  assert.equal(getOverallDailyTokenUsage(now).percentUsed, 6.67);
+  process.env.GROQ_VISION_MODEL = 'overall-text';
+  assert.deepEqual(getOverallDailyTokenUsage(now), { tokensUsed: 15000, dailyLimit: 200000, percentUsed: 7.5 });
+});
 (async () => {
   let failed = 0;
   for (const [name, fn] of tests) {

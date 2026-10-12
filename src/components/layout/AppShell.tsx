@@ -44,7 +44,7 @@ export function AppShell({
   }, []);
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex flex-col lg:flex-row min-h-dvh bg-slate-50">
       <AppSidebar user={user} />
       <div className="flex-1 flex flex-col min-w-0">
         <AppHeader
@@ -53,7 +53,7 @@ export function AppShell({
           onSearch={onSearch}
           showCreateButton={showCreateButton}
         />
-        <main className="flex-1 p-6 md:p-8 overflow-y-auto">{children}</main>
+        <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">{children}</main>
       </div>
     </div>
   );
