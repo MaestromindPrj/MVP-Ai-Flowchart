@@ -12,10 +12,11 @@ import {
 } from "lucide-react";
 import { ChatInputTools } from "./ChatInputTools";
 import { AIUsage } from "./AIUsage";
-import { AIImageInput, ProcessData } from "@/lib/ai/types";
+import { AIImageInput, ProcessData, AITokenUsage } from "@/lib/ai/types";
 import { ImageAttachment } from "./ImageAttachment";
 
 export interface ChatMessage {
+  usage?: AITokenUsage;
   id: string;
   senderType: "AI" | "USER" | string;
   message: string;
@@ -68,12 +69,12 @@ export function ProcessChat({
     container?.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading]);
 
-  const handleSendMessage = async (textToSend?: string, fromDocument = false): Promise<boolean> => {
+  const handleSendMessage = async (textToSend?: string, fromDocument = false, documentImages: AIImageInput[] = []): Promise<boolean> => {
     const message = textToSend || inputText.trim() || (images.length ? "Create or update the flowchart from the attached images." : "");
     if (!message.trim() || sending.current || isLoading || isReadOnly || (inputBusy && !fromDocument) || imageBusy) return false;
     if (message.length > 24000) { setDraftError("Keep the draft under 24,000 characters before sending."); return false; }
     setDraftError("");
-    const attachedImages = fromDocument ? [] : images;
+    const attachedImages = fromDocument ? documentImages : images;
 
     const userMessageId = `user-msg-${Date.now()}`;
     const userMessage: ChatMessage = {
@@ -111,6 +112,7 @@ export function ProcessChat({
         id: `ai-msg-${Date.now()}`,
         senderType: "AI",
         message: data.responseMessage,
+        usage: data.usage,
         suggestedChanges: data.suggestedChanges || [],
         createdAt: new Date().toISOString(),
       };
@@ -232,6 +234,14 @@ export function ProcessChat({
                   }`}
                 >
                   <div className="whitespace-pre-wrap">{msg.message}</div>
+                  {isAI && msg.usage && (
+                    <div className="mt-2 text-xs text-slate-500" title="Provider-reported tokens, including any automatic retry. Input includes instructions, history, diagram, attachments and cached input. Counts are available in this chat until reload; server logs also record each call.">
+                      <div>{msg.usage.model}</div>
+                      <div>Input: {msg.usage.inputTokens.toLocaleString()} · Output: {msg.usage.outputTokens.toLocaleString()} · Total: {msg.usage.totalTokens.toLocaleString()} tokens</div>
+                      {(msg.usage.attempts ?? 1) > 1 && <div>Includes {msg.usage.attempts} attempts</div>}
+                      {(msg.usage.cacheReadInputTokens > 0 || msg.usage.cacheCreationInputTokens > 0) && <div>Included in input: cache read {msg.usage.cacheReadInputTokens.toLocaleString()} · cache write {msg.usage.cacheCreationInputTokens.toLocaleString()}</div>}
+                    </div>
+                  )}
 
                   {isAI &&
                     msg.suggestedChanges &&
@@ -298,7 +308,7 @@ export function ProcessChat({
       </div>
 
       <div className="shrink-0 max-h-[60%] overflow-y-auto overscroll-contain p-3.5 border-t border-slate-200 bg-white">
-        {!isReadOnly && <ChatInputTools processId={processId} disabled={isLoading || isReadOnly || imageBusy} onBusy={setInputBusy} onImport={text => handleSendMessage(text, true)} onAppend={text => setInputText(previous => previous.trim() ? previous + "\n\n" + text : text)} />}
+        {!isReadOnly && <ChatInputTools processId={processId} disabled={isLoading || isReadOnly || imageBusy} onBusy={setInputBusy} onImport={(text, documentImages) => handleSendMessage(text, true, documentImages)} onAppend={text => setInputText(previous => previous.trim() ? previous + "\n\n" + text : text)} />}
         {!isReadOnly && <ImageAttachment images={images} onChange={setImages} onBusy={setImageBusy} disabled={isLoading || inputBusy} />}
         {draftError && <p role="alert" className="text-xs text-red-600 mb-2">{draftError}</p>}
         <form

@@ -52,7 +52,9 @@ export function recordGroqTokens(model: string, usage: unknown, now = Date.now()
 
 export function getDailyTokenUsage(now = Date.now()) {
   const day = new Date(now).toISOString().slice(0, 10);
-  const configurations = [
+  const configurations = process.env.AI_PROVIDER === "anthropic" ? [
+    { model: process.env.ANTHROPIC_MODEL?.trim() || "claude-sonnet-5-5", limit: process.env.ANTHROPIC_DAILY_TOKEN_LIMIT },
+  ] : [
     { model: process.env.GROQ_MODEL?.trim() || "openai/gpt-oss-20b", limit: process.env.GROQ_DAILY_TOKEN_LIMIT },
     { model: process.env.GROQ_VISION_MODEL?.trim() || "qwen/qwen3.8-27b", limit: process.env.GROQ_VISION_DAILY_TOKEN_LIMIT },
   ];

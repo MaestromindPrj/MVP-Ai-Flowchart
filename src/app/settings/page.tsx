@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { useToast } from "@/components/ui/Toast";
+import { ChangePassword } from "@/components/settings/ChangePassword";
 
 export default function SettingsPage() {
   const toast = useToast();
@@ -85,6 +86,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <ChangePassword />
         <form onSubmit={handleSave} className="bg-white rounded-xl border border-slate-200 shadow-card p-6 space-y-6">
           <div className="flex flex-wrap items-center gap-2.5 pb-4 border-b border-slate-100">
             <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-800 flex items-center justify-center">

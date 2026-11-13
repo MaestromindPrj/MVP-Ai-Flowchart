@@ -70,6 +70,23 @@ test('rejects missing vision configuration and honours cancellation', async () =
   const controller = new AbortController(); controller.abort();
   await assert.rejects(readPDFDocument(mixed, controller.signal));
 });
+test('Claude reads PDF pages without a Groq key using native image blocks', async () => {
+  process.env.AI_PROVIDER = 'anthropic';
+  process.env.ANTHROPIC_API_KEY = 'test-claude-key';
+  delete process.env.GROQ_API_KEY;
+  let calls = 0;
+  global.fetch = async (url, options) => {
+    calls++;
+    assert.equal(url, 'https://api.anthropic.com/v1/messages');
+    const request = JSON.parse(options.body);
+    assert.ok(request.messages[0].content.some(block => block.type === 'image' && block.source.type === 'base64'));
+    return new Response(JSON.stringify({stop_reason:'end_turn',usage:{input_tokens:10,output_tokens:10},content:[{type:'text',text:'Start -> Review -> Done'}]}));
+  };
+  const result = await readPDFDocument(mixed);
+  assert.ok(result.text.includes('Review'));
+  assert.ok(calls > 0);
+  process.env.AI_PROVIDER = 'groq';
+});
 (async () => {
   let failed = 0;
   for (const [name, fn] of tests) {

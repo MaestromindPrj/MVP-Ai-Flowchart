@@ -2,6 +2,7 @@ import { PDFParse } from "pdf-parse";
 import { getData } from "pdf-parse/worker";
 import { AIServiceError } from "./validation";
 import { recordGroqUsage, recordGroqTokens } from "./usage";
+import { anthropicImage, callAnthropic } from "./anthropic-client";
 
 // Use the packaged worker rather than a relative dynamic import, which can
 // resolve against a generated Next.js chunk in a deployed function.
@@ -15,6 +16,11 @@ For every flowchart, list each node with its page number, label, shape/type and 
 Preserve process rules, conditions and deadlines from prose. Mark unreadable labels and ambiguous arrows explicitly; never invent connections or missing text. Identify blank or irrelevant pages. Return concise plain text grouped by the supplied page numbers, retaining all workflow details. No code fences.`;
 
 async function readPages(pages: { pageNumber: number; dataUrl: string; text: string }[], signal: AbortSignal): Promise<string> {
+  if (process.env.AI_PROVIDER === "anthropic") {
+    return callAnthropic(PROMPT, [{ role: "user", content: pages.flatMap(page => [
+      { type: "text", text: `PDF page ${page.pageNumber}:\n${page.text.slice(0, 16000)}` }, anthropicImage(page.dataUrl),
+    ]) }], 6000, signal);
+  }
   const key = process.env.GROQ_API_KEY?.trim();
   if (!key || process.env.AI_PROVIDER === "mock") throw new AIServiceError("Reading PDF scans and diagrams requires GROQ_API_KEY and AI_PROVIDER=groq.", 503);
   const content = pages.flatMap(page => [
@@ -58,7 +64,8 @@ export async function readPDFDocument(buffer: Buffer, requestSignal?: AbortSigna
   try {
     const info = await parser.getInfo();
     if (info.total > 30) throw new AIServiceError("Use a PDF with at most 30 pages. Split larger documents into sections.", 413);
-    if (!process.env.GROQ_API_KEY?.trim() || process.env.AI_PROVIDER === "mock") throw new AIServiceError("Reading PDF scans and diagrams requires GROQ_API_KEY and AI_PROVIDER=groq.", 503);
+    const configured = process.env.AI_PROVIDER === "anthropic" ? process.env.ANTHROPIC_API_KEY?.trim() : process.env.GROQ_API_KEY?.trim();
+    if (!configured || process.env.AI_PROVIDER === "mock") throw new AIServiceError("Reading PDF scans and diagrams requires an API key for the selected AI provider.", 503);
     const sections: string[] = [];
     // Read every page visually, even when a text layer exists: arrows and
     // embedded diagrams are not represented by text extraction alone.

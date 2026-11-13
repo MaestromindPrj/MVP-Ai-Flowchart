@@ -7,7 +7,7 @@ import { parseImageInputs } from "@/lib/ai/image-input";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Best-effort per-instance guard; use a shared limiter for multiple replicas.
 const requestWindows = new Map<string, { start: number; count: number }>();
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     if (access) return access;
     const images = parseImageInputs(body.images, body.image);
     if (!body.message.trim() && !images.length) throw new AIServiceError("Provide a message or an image.", 400);
-    if (images.length && globalThis.process.env.AI_PROVIDER === "mock") throw new AIServiceError("Image reading requires the Groq AI provider. Set AI_PROVIDER to groq.", 503);
+    if (images.length && globalThis.process.env.AI_PROVIDER === "mock") throw new AIServiceError("Image reading requires a configured Claude or Groq provider.", 503);
     const message = body.message.trim() || "Create or update the flowchart from the attached images.";
     const savedMessage = message + images.map(image => `\n\n[Attached image: ${image.name}]`).join("");
     let currentProcess;
@@ -81,6 +81,13 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json(result);
   } catch (error) {
+    const databaseError = error as { code?: string; errorCode?: string } | null;
+    if (["P1001", "P1002", "P1008", "P1017", "P2024"].includes(databaseError?.code || databaseError?.errorCode || "")) {
+      return NextResponse.json(
+        { error: "The database is temporarily unavailable. Please wait and try again. If this continues, check the Neon connection and restart the app." },
+        { status: 503 }
+      );
+    }
     const known = error instanceof AIServiceError;
     return NextResponse.json(
       { error: known ? error.message : "Unable to save the AI response. Please try again." },

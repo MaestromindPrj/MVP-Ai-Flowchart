@@ -2,7 +2,7 @@
 import { useEffect, useId, useState } from "react";
 import { Gauge, X } from "lucide-react";
 
-type Usage = { enabled: boolean; models: { model: string; percentUsed: number | null }[] };
+type Usage = { enabled: boolean; provider: string; models: { model: string; percentUsed: number | null }[] };
 export function AIUsage() {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -39,7 +39,7 @@ export function AIUsage() {
         <p className="break-all text-xs font-medium text-slate-600">{model.model}</p>
         <p className="mt-1 text-xl font-semibold text-blue-700">{model.percentUsed === null ? "Unavailable" : `${model.percentUsed.toLocaleString(undefined, { maximumFractionDigits: 2 })}% used`}</p>
       </div>)}
-      {data?.enabled && <p className="text-[11px] leading-relaxed text-slate-500">Each model's tracked tokens today / its daily allowance. Shared across users; UTC day. This server only; resets on restart and excludes earlier untracked usage. Assumes free-plan limits unless configured.</p>}
+      {data?.enabled && <p className="text-[11px] leading-relaxed text-slate-500">Each model's tracked tokens today / its daily allowance. Shared across users; UTC day. This server only; resets on restart and excludes earlier untracked usage. {data.provider === "anthropic" ? "Claude requires a configured daily token budget to show a percentage. This is not your API credit balance or a spending cap." : "Assumes free-plan limits unless configured."}</p>}
     </section>}
   </>;
 }

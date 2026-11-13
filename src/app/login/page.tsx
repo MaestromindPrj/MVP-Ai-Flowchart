@@ -8,6 +8,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [showResetHelp, setShowResetHelp] = useState(false);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError("");
     try {
@@ -32,6 +33,10 @@ export default function LoginPage() {
           {register && <p className="text-xs text-slate-500">Use at least 12 characters. You control who can access the flowcharts you create.</p>}
           <button disabled={busy} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-2.5 font-semibold disabled:opacity-50">{busy ? "Please wait..." : register ? "Create account" : "Sign in"}</button>
         </form>
+        {!register && <div className="mt-4 text-center">
+          <button type="button" onClick={() => setShowResetHelp(!showResetHelp)} aria-expanded={showResetHelp} className="text-sm text-blue-600 hover:underline">Forgot password?</button>
+          {showResetHelp && <p role="status" className="mt-3 rounded-lg bg-blue-50 p-3 text-sm text-slate-700">Contact your administrator to reset your password. Share the email address you used to register. After receiving your new password, sign in and change it in Settings.</p>}
+        </div>}
         <button disabled={busy} onClick={() => { setRegister(!register); setError(""); setPassword(""); }} className="mt-5 w-full text-sm text-blue-600">{register ? "Already have an account? Sign in" : "New here? Create an account"}</button>
       </div>
     </div>

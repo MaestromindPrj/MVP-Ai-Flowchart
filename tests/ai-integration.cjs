@@ -244,6 +244,131 @@ test('overall percentage sums tokens and limits without averaging model percenta
   process.env.GROQ_VISION_MODEL = 'overall-text';
   assert.deepEqual(getOverallDailyTokenUsage(now), { tokensUsed: 15000, dailyLimit: 200000, percentUsed: 7.5 });
 });
+test('Claude sends native image blocks and preserves positions for metadata edits', async () => {
+  const { AnthropicAIProcessService } = require('../src/lib/ai/anthropic-process-service.ts');
+  process.env.ANTHROPIC_API_KEY = 'test-key';
+  process.env.ANTHROPIC_MODEL = 'claude-sonnet-5-5';
+  global.fetch = async (url, options) => {
+    assert.equal(url, 'https://api.anthropic.com/v1/messages');
+    const body = JSON.parse(options.body);
+    assert.equal(body.model, 'claude-sonnet-5-5');
+    assert.ok(body.system.includes('business process'));
+    assert.equal(body.messages.at(-1).content[1].source.media_type, 'image/png');
+    assert.equal(body.response_format, undefined);
+    assert.equal(body.output_config.format.type, 'json_schema');
+    assert.deepEqual(body.output_config.format.schema.properties.processUpdate.anyOf[1].properties.nodes.items.properties.type.enum, ['start', 'task', 'approval', 'decision', 'end']);
+    return new Response(JSON.stringify({ stop_reason: 'end_turn', usage: { input_tokens: 100, output_tokens: 50 }, content: [{ type: 'text', text: JSON.stringify({responseMessage:'Updated', processUpdate:graph}) }] }));
+  };
+  const result = await new AnthropicAIProcessService().sendMessage('p','Edit',graph,[],[{name:'image.png',dataUrl:'data:image/png;base64,aGVsbG8='}]);
+  assert.deepEqual(result.processUpdate.nodes[0].position,graph.nodes[0].position);
+  assert.equal(result.usage.inputTokens, 100);
+  assert.equal(result.usage.outputTokens, 50);
+  assert.equal(result.usage.totalTokens, 150);
+});
+
+test('Claude usage includes cache tokens once, stays per-call, and logs truncated responses', async () => {
+  const { callAnthropicWithUsage } = require('../src/lib/ai/anthropic-client.ts');
+  const originalInfo = console.info;
+  const logs = [];
+  console.info = (...args) => logs.push(args);
+  try {
+    let stopReason = 'end_turn';
+    global.fetch = async () => new Response(JSON.stringify({ model: 'reported-model', stop_reason: stopReason,
+      usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 20, cache_creation_input_tokens: 30 },
+      content: [{ type: 'text', text: 'private response' }] }), { headers: { 'request-id': 'test-request' } });
+    const result = await callAnthropicWithUsage('private prompt', [], 100);
+    assert.deepEqual(result.usage, { model: 'reported-model', requestId: 'test-request', inputTokens: 150, outputTokens: 50,
+      cacheReadInputTokens: 20, cacheCreationInputTokens: 30, totalTokens: 200 });
+    stopReason = 'max_tokens';
+    await assert.rejects(callAnthropicWithUsage('private prompt', [], 100));
+    assert.equal(logs.length, 2);
+    assert.equal(JSON.parse(logs[1][1]).totalTokens, 200);
+    assert.ok(!JSON.stringify(logs).includes('private'));
+    global.fetch = async () => new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'OK' }] }));
+    assert.equal((await callAnthropicWithUsage('', [], 100)).usage, undefined);
+  } finally { console.info = originalInfo; }
+});
+test('Claude rejects truncated and malformed graphs and reports provider errors safely', async () => {
+  const { AnthropicAIProcessService } = require('../src/lib/ai/anthropic-process-service.ts');
+  const service = new AnthropicAIProcessService();
+  for (const status of [400,401,403,404,429,500,529]) {
+    global.fetch = async () => new Response('private provider details', {status});
+    await assert.rejects(service.sendMessage('p','Edit',graph), error => !error.message.includes('private provider details'));
+  }
+  for (const [stop_reason,text] of [['max_tokens','{}'],['end_turn','not json'],['end_turn',JSON.stringify({responseMessage:'Done',processUpdate:{nodes:[],edges:[]}})]]) {
+    global.fetch = async () => new Response(JSON.stringify({stop_reason,content:[{type:'text',text}]}));
+    await assert.rejects(service.sendMessage('p','Edit',graph));
+  }
+});
+test('Claude structured graphs are laid out and invalid relationships remain rejected without retries', async () => {
+  const { AnthropicAIProcessService } = require('../src/lib/ai/anthropic-process-service.ts');
+  const service = new AnthropicAIProcessService();
+  const generated = structuredClone(graph);
+  generated.nodes.forEach(node => delete node.position);
+  let payload = { responseMessage: 'Created', processUpdate: generated, suggestedChanges: [], suggestedPrompts: [] };
+  let calls = 0;
+  global.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(payload) }] }));
+  };
+  const result = await service.sendMessage('p', 'Create', { nodes: [], edges: [] });
+  assert.ok(result.processUpdate.nodes.every(node => Number.isFinite(node.position.x) && Number.isFinite(node.position.y)));
+  generated.edges[0].target = 'missing';
+  await assert.rejects(service.sendMessage('p', 'Create', graph), /saved diagram has not changed/);
+  assert.equal(calls, 2);
+  payload = { responseMessage: 'Which team?', processUpdate: null, suggestedChanges: [], suggestedPrompts: [] };
+  assert.equal((await service.sendMessage('p', 'Clarify', graph)).processUpdate, undefined);
+});
+
+test('plain Claude calls used for document extraction do not receive the flowchart schema', async () => {
+  const { callAnthropic } = require('../src/lib/ai/anthropic-client.ts');
+  global.fetch = async (_url, options) => {
+    assert.equal(JSON.parse(options.body).output_config, undefined);
+    return new Response(JSON.stringify({ stop_reason: 'end_turn', content: [{ type: 'text', text: 'Document text' }] }));
+  };
+  assert.equal(await callAnthropic('Extract', [{ role: 'user', content: 'Document' }], 100), 'Document text');
+});
+
+test('complex imports get sufficient output budget, retry truncation once and count both attempts', async () => {
+  const { AnthropicAIProcessService } = require('../src/lib/ai/anthropic-process-service.ts');
+  const service = new AnthropicAIProcessService();
+  const sent = [];
+  global.fetch = async (_url, options) => {
+    sent.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ stop_reason: sent.length === 1 ? 'max_tokens' : 'end_turn',
+      usage: { input_tokens: 100, output_tokens: sent.length === 1 ? 16000 : 8000 },
+      content: [{ type: 'text', text: sent.length === 1 ? '{"processUpdate":' : JSON.stringify({responseMessage:'Created',processUpdate:graph}) }] }));
+  };
+  const result = await service.sendMessage('p', 'Process narrative. '.repeat(650), {nodes:[],edges:[]}, [], [image]);
+  assert.deepEqual(sent.map(body=>body.max_tokens),[16000,24000]);
+  assert.deepEqual(sent[0].messages,sent[1].messages);
+  assert.equal(sent[0].messages.at(-1).content[1].type,'image');
+  assert.equal(result.usage.outputTokens,24000);
+  assert.equal(result.usage.totalTokens,24200);
+  assert.equal(result.usage.attempts,2);
+  let calls=0;
+  global.fetch = async () => { calls++; return new Response(JSON.stringify({stop_reason:'max_tokens',content:[{type:'text',text:'partial'}]})); };
+  await assert.rejects(service.sendMessage('p','Create',graph),e=>e.status===422 && /response-length limit/.test(e.message));
+  assert.equal(calls,2);
+  calls=0;
+  global.fetch = async () => { calls++; return new Response(JSON.stringify({stop_reason:'refusal',content:[]})); };
+  await assert.rejects(service.sendMessage('p','Create',graph));
+  assert.equal(calls,1);
+});
+
+test('database outages return 503 before calling AI without exposing connection details', async () => {
+  resetDb();
+  let calls = 0;
+  factory.setAIProcessService({ sendMessage: async () => { calls++; return { responseMessage: 'Done' }; } });
+  db.process.findUnique = async () => { throw Object.assign(new Error('private database connection'), { errorCode: 'P1001' }); };
+  const response = await POST(request(body));
+  assert.equal(response.status, 503);
+  const result = await response.json();
+  assert.match(result.error, /database is temporarily unavailable/);
+  assert.ok(!result.error.includes('private database connection'));
+  assert.equal(calls, 0);
+  resetDb();
+});
 (async () => {
   let failed = 0;
   for (const [name, fn] of tests) {

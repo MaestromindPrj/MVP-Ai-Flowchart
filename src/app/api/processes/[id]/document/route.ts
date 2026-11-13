@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authorizeProcess } from "@/lib/auth";
 import { prisma } from "@/lib/db/prisma";
-import mammoth from "mammoth";
+import { readDOCXDocument } from "@/lib/ai/docx-document";
+import type { AIImageInput } from "@/lib/ai/types";
 import { AIServiceError } from "@/lib/ai/validation";
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const buffer = Buffer.concat(chunks); let text = "";
     let pages: number | undefined;
+    let images: AIImageInput[] = [];
     if (extension === "pdf") {
       stage = "pdf-runtime";
       const { readPDFDocument } = await import("@/lib/ai/pdf-document");
@@ -37,15 +39,15 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       ({ text, pages } = await readPDFDocument(buffer, request.signal));
     } else if (extension === "docx") {
       stage = "docx-reading";
-      text = (await mammoth.extractRawText({ buffer })).value;
+      ({ text, images } = await readDOCXDocument(buffer));
     } else {
       text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
       if (text.includes("\0")) throw new Error("Binary input");
     }
     text = text.trim();
-    if (!text) return NextResponse.json({ error: "No readable content found. Upload a clearer document." }, { status: 422 });
+    if (!text && !images.length) return NextResponse.json({ error: "No readable content found. Upload a clearer document." }, { status: 422 });
     if (text.length > 20000) return NextResponse.json({ error: "Document exceeds 20,000 characters. Upload a shorter section." }, { status: 413 });
-    return NextResponse.json({ text, pages, visual: extension === "pdf", name: name.slice(0,200) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ text, images, pages, visual: extension === "pdf" || images.length > 0, name: name.slice(0,200) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof AIServiceError) return NextResponse.json({ error: error.message }, { status: error.status });
     const detail = error as { name?: string; code?: string; message?: string };
