@@ -49,12 +49,20 @@ const valid = { currentPassword: 'current-password', password: 'a-new-password-1
   try {
     console.log = line => output.push(line);
     process.argv = ['node', 'script', 'USER@example.com'];
-    await main();
+    const password = 'Admin-chosen-password-123';
+    await main(async () => password);
     assert.equal(revoked, 2);
-    const password = output.find(line => line.startsWith('New password: ')).slice(14);
-    assert.equal(password.length, 24);
+    assert.ok(output.every(line => !line.includes(password)));
     const [salt, hash] = storedHash.split(':');
     assert.equal((await promisify(scrypt)(password, salt, 64)).toString('hex'), hash);
+    for (const invalid of ['short', 'x'.repeat(129)]) {
+      await assert.rejects(main(async () => invalid), /12-128 characters/);
+    }
+    let promptCount = 0;
+    await assert.rejects(main(async () => ++promptCount === 1 ? password : 'different-password'), /do not match/);
+    await assert.rejects(main(async () => { throw new Error('cancelled'); }), /cancelled/);
+    assert.equal(revoked, 2);
+    assert.equal(storedHash, `${salt}:${hash}`);
     accountExists = false;
     output.length = 0;
     await assert.rejects(main(), /No account found/);
