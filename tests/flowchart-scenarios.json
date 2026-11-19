@@ -1,0 +1,20 @@
+[
+  {
+    "id": "simple",
+    "prompt": "Create an employee leave request flowchart. Start -> Submit leave request -> Manager decision. If approved, notify the employee and end. If rejected, notify the employee of rejection and end. Label the decision branches Approved and Rejected. Keep descriptions brief.",
+    "minimumNodes": 5,
+    "requiredTypes": ["start", "decision", "end"]
+  },
+  {
+    "id": "medium",
+    "prompt": "Create an online order fulfilment flowchart. Start when an order arrives. Validate payment. If payment fails, notify the customer and end. If paid, check inventory. If unavailable, offer a refund or backorder. A refund ends the process; a backorder waits for stock then returns to the inventory check. If available, pick, pack, dispatch, send tracking details, and end. Label every decision branch. Include Sales, Finance and Warehouse owners where relevant.",
+    "minimumNodes": 9,
+    "requiredTypes": ["start", "decision", "task", "end"]
+  },
+  {
+    "id": "complex",
+    "prompt": "Create a procurement workflow with 15 to 25 steps. An employee submits a purchase request. Check completeness; incomplete requests return to the employee for correction. The manager approves or rejects; rejection notifies the employee and ends. Check budget; insufficient budget requires finance approval or rejection. Purchases above $10000 require director approval; lower amounts skip it. Procurement selects a vendor and issues a purchase order. Receive goods, inspect them, and return defective goods to the vendor for replacement and reinspection. Match the invoice against the purchase order and received goods; discrepancies go to Finance for resolution and rechecking. Pay the vendor, archive documents and end. Label all decision branches and include owners. Keep labels and descriptions short.",
+    "minimumNodes": 15,
+    "requiredTypes": ["start", "decision", "approval", "end"]
+  }
+]

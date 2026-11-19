@@ -137,3 +137,54 @@ body {
 .animate-pulse-subtle {
   animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+/* Keep native controls readable without triggering iOS input zoom. */
+@media (max-width: 1023px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    font-size: 16px;
+  }
+  .workspace-chat > div, .workspace-info > div {
+    width: 100% !important;
+    min-width: 0;
+  }
+  .workspace-chat [role="separator"] { display: none; }
+  .workspace-header > div:first-child { width: 100%; }
+  .workspace-actions { width: 100%; padding-bottom: 2px; }
+  .workspace-actions button, .workspace-actions a { white-space: nowrap; flex-shrink: 0; }
+}
+
+@media (max-width: 639px) {
+  .process-table > .grid:first-child { display: none; }
+  .process-table > .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+  .process-table > .grid > div { grid-column: span 1; min-width: 0; }
+  .process-table > .grid > div:first-child { grid-column: 1 / -1; }
+  .process-table .opacity-0 { opacity: 1; }
+  .react-flow__panel.top.left { margin: 8px; gap: 4px; }
+  .react-flow__panel.top.center { top: 112px; width: max-content; max-width: calc(100% - 16px); margin: 0; }
+  .react-flow__panel.top.right { margin: 8px; max-width: calc(100% - 16px); }
+  .react-flow__minimap { max-width: 120px; max-height: 90px; }
+}
+
+@media (pointer: coarse) {
+  button, a, summary, select { touch-action: manipulation; }
+  button:not(.react-flow__node button), select { min-height: 44px; }
+  button:has(> svg:only-child) { min-width: 44px; }
+  .react-flow__controls-button { width: 44px; height: 44px; }
+}
+
+body { overflow-wrap: break-word; }
+@supports (padding: env(safe-area-inset-bottom)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  .workspace-chat > div > div:last-child { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+}
+
+@media (pointer: coarse) {
+  .canvas-toolbar > div { height: auto; min-height: 44px; }
+  .process-table .opacity-0 { opacity: 1; }
+}

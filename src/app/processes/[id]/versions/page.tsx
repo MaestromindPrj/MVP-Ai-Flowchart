@@ -58,7 +58,7 @@ export default async function ProcessVersionsPage({
       showCreateButton={false}
     >
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <Link
               href={`/processes/${process.id}`}

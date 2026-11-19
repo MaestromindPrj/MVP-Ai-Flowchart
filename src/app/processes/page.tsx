@@ -263,7 +263,7 @@ export default function ProcessesListPage() {
           </div>
         ) : viewMode === "table" ? (
           <div className="bg-white rounded-xl border border-slate-200 shadow-card overflow-hidden">
-            <div className="divide-y divide-slate-100">
+            <div className="process-table divide-y divide-slate-100">
               <div className="grid grid-cols-12 px-6 py-3 bg-slate-50/70 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 <div className="col-span-4">Process Name</div>
                 <div className="col-span-2">Department / Owner</div>

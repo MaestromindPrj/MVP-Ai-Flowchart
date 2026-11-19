@@ -46,7 +46,19 @@ export interface AIImageInput {
   dataUrl: string;
 }
 
+export interface AITokenUsage {
+  attempts?: number;
+  model: string;
+  requestId: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadInputTokens: number;
+  cacheCreationInputTokens: number;
+  totalTokens: number;
+}
+
 export interface AIProcessResponse {
+  usage?: AITokenUsage;
   responseMessage: string;
   processUpdate?: ProcessData;
   suggestedChanges?: string[];

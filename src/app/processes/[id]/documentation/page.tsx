@@ -405,7 +405,7 @@ export default function DocumentationPage() {
 
         <div
           ref={documentRef}
-          className="bg-white rounded-xl border border-slate-200 shadow-card p-8 sm:p-10 space-y-8 text-slate-900"
+          className="bg-white rounded-xl border border-slate-200 shadow-card p-4 sm:p-10 space-y-8 text-slate-900"
         >
           <div className="border-b border-slate-200 pb-8 flex flex-col md:flex-row md:items-start justify-between gap-6">
             <div className="space-y-2.5 max-w-xl">
@@ -519,7 +519,7 @@ export default function DocumentationPage() {
                   return (
                     <div key={node.id} className="flex flex-col items-center">
                       <div
-                        className={`px-4 py-3 rounded-xl border shadow-subtle min-w-[280px] max-w-md bg-white ${
+                        className={`px-4 py-3 rounded-xl border shadow-subtle w-full min-w-0 max-w-md bg-white ${
                           node.type === "start"
                             ? "border-emerald-400 bg-emerald-50/30"
                             : node.type === "approval"

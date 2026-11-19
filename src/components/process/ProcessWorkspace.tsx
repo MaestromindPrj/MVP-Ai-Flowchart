@@ -67,6 +67,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isEditFinalizedOpen, setIsEditFinalizedOpen] = useState(false);
 
+  const [mobilePanel, setMobilePanel] = useState<"chat" | "canvas" | "info">("canvas");
   const [leftPanelOpen, setLeftPanelOpen] = useState(true);
   const [rightPanelOpen, setRightPanelOpen] = useState(true);
 
@@ -432,7 +433,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
 
   return (
     <div className="flex flex-col h-dvh w-full overflow-hidden bg-slate-100 select-none">
-      <header className="h-16 bg-white border-b border-slate-200 px-5 flex items-center justify-between shrink-0 z-30 shadow-subtle">
+      <header className="workspace-header min-h-16 py-2 gap-2 flex-wrap bg-white border-b border-slate-200 px-3 sm:px-5 flex items-center justify-between shrink-0 z-30 shadow-subtle">
         <div className="flex items-center gap-3.5 min-w-0">
           <Link
             href="/processes"
@@ -472,7 +473,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="workspace-actions flex items-center gap-3 max-w-full overflow-x-auto">
           <div className="hidden md:flex items-center gap-2 text-xs text-slate-400 font-medium">
             {saveStatus === "saving" ? (
               <>
@@ -489,13 +490,13 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
 
           <div className="h-5 w-px bg-slate-200 hidden md:block"></div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 shrink-0">
             <span className="text-xs text-slate-500">{isOwner ? "Owner" : canEdit ? "Shared: can edit" : "Shared: view only"}</span>
             {isOwner && <button onClick={() => setSharing(true)} className="h-10 px-4 rounded-lg bg-blue-600 text-white text-xs font-semibold">Share</button>}
             <button
               onClick={() => setLeftPanelOpen(!leftPanelOpen)}
               title={leftPanelOpen ? "Collapse AI Chat" : "Expand AI Chat"}
-              className={`h-10 w-10 flex items-center justify-center rounded-lg border text-xs transition-colors ${
+              className={`hidden lg:flex h-10 w-10 items-center justify-center rounded-lg border text-xs transition-colors ${
                 leftPanelOpen
                   ? "bg-blue-50 border-blue-300 text-blue-700"
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -553,7 +554,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             <button
               onClick={() => setRightPanelOpen(!rightPanelOpen)}
               title={rightPanelOpen ? "Collapse Info" : "Expand Info"}
-              className={`h-10 w-10 flex items-center justify-center rounded-lg border text-xs transition-colors ${
+              className={`hidden lg:flex h-10 w-10 items-center justify-center rounded-lg border text-xs transition-colors ${
                 rightPanelOpen
                   ? "bg-blue-50 border-blue-300 text-blue-700"
                   : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -565,8 +566,11 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
         </div>
       </header>
 
+      <nav aria-label="Workspace views" className="lg:hidden grid grid-cols-3 bg-white border-b border-slate-200 shrink-0">
+        {(["chat", "canvas", "info"] as const).map((panel) => <button key={panel} aria-pressed={mobilePanel === panel} onClick={() => setMobilePanel(panel)} className={"min-h-11 text-sm font-semibold " + (mobilePanel === panel ? "text-blue-700 bg-blue-50 border-b-2 border-blue-600" : "text-slate-600")}>{panel === "chat" ? "AI Chat" : panel === "canvas" ? "Flowchart" : "Info"}</button>)}
+      </nav>
       <div className="flex-1 min-h-0 min-w-0 flex overflow-hidden relative">
-        {leftPanelOpen && (
+        <div className={`workspace-chat min-h-0 h-full ${mobilePanel === "chat" ? "flex w-full" : "hidden"} ${leftPanelOpen ? "lg:flex lg:w-auto" : "lg:hidden"}`}>
           <ProcessChat
             processId={process.id}
             messages={messages}
@@ -575,9 +579,9 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             onNewMessage={handleNewChatMessage}
             isReadOnly={isFinalized || !canEdit}
           />
-        )}
+        </div>
 
-        <div className="flex-1 min-w-0 relative h-full">
+        <div className={`flex-1 min-w-0 relative h-full ${mobilePanel === "canvas" ? "block" : "hidden"} lg:block`}>
           <ProcessCanvas
             initialNodes={nodes}
             initialEdges={edges}
@@ -593,7 +597,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
           />
         </div>
 
-        {rightPanelOpen && (
+        <div className={`workspace-info min-h-0 h-full ${mobilePanel === "info" ? "flex w-full" : "hidden"} ${rightPanelOpen ? "lg:flex lg:w-auto" : "lg:hidden"}`}>
           <ProcessInfo
             process={process}
             participants={participants}
@@ -606,7 +610,7 @@ export function ProcessWorkspace({ initialProcess }: ProcessWorkspaceProps) {
             onUnlockToEdit={canEdit ? () => setIsEditFinalizedOpen(true) : undefined}
             isReadOnly={isFinalized || !canEdit}
           />
-        )}
+        </div>
       </div>
 
       {sharing && <ShareProcessModal processId={process.id} onClose={() => setSharing(false)} />}

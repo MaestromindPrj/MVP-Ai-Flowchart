@@ -10,7 +10,8 @@
     "lint": "next lint",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "user:reset-password": "node scripts/reset-user-password.cjs"
   },
   "dependencies": {
     "@prisma/client": "^5.21.1",
